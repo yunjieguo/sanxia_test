@@ -149,33 +149,84 @@ class ConverterService:
         self.db.refresh(conversion)
 
         try:
-            # 生成输出文件名和路径
-            output_filename = f"{uuid.uuid4()}.pdf"
-            output_path = os.path.join(settings.OUTPUT_DIR, output_filename)
+            import zipfile
+            import tempfile
+            import shutil
 
-            # 尝试使用 LibreOffice 转换（如果可用）
-            success = self._convert_with_libreoffice(db_file.file_path, output_path)
+            # 创建临时目录
+            temp_dir = tempfile.mkdtemp(prefix='word_convert_')
+            temp_zip_path = None
 
-            if not success:
-                # 如果 LibreOffice 不可用，使用备用方案
-                success = self._convert_word_fallback(db_file.file_path, output_path)
+            try:
+                # 将 Word 文件打包成临时 ZIP
+                temp_zip_path = os.path.join(temp_dir, f"{uuid.uuid4()}.zip")
+                with zipfile.ZipFile(temp_zip_path, 'w', zipfile.ZIP_DEFLATED) as zipf:
+                    zipf.write(db_file.file_path, os.path.basename(db_file.file_path))
 
-            if not success:
-                raise Exception("Word 转 PDF 失败：未找到可用的转换工具")
+                print(f"创建临时 ZIP: {temp_zip_path}")
 
-            # 更新转换任务状态
-            conversion.status = 'completed'
-            conversion.result_path = output_path
-            conversion.result_filename = output_filename
-            conversion.completed_at = datetime.now()
+                # 创建临时压缩包文件记录
+                temp_filename = f"{uuid.uuid4()}.zip"
+                temp_file = File(
+                    filename=temp_filename,
+                    original_name=f"temp_{uuid.uuid4()}.zip",
+                    file_path=temp_zip_path,
+                    file_size=os.path.getsize(temp_zip_path),
+                    file_type='zip',
+                    status='uploaded'
+                )
+                self.db.add(temp_file)
+                self.db.commit()
+                self.db.refresh(temp_file)
 
-            # 更新原文件状态
-            db_file.status = 'converted'
+                print(f"调用压缩包转 PDF 流程，临时文件ID: {temp_file.id}")
 
-            self.db.commit()
-            self.db.refresh(conversion)
+                # 调用压缩包转 PDF 的逻辑（复用相同的转换流程）
+                archive_conversion = self.convert_archive_to_pdf(temp_file.id)
 
-            return conversion
+                # 将压缩包转换的结果（ZIP）解压，提取 PDF
+                output_filename = f"{uuid.uuid4()}.pdf"
+                output_path = os.path.join(settings.OUTPUT_DIR, output_filename)
+
+                with zipfile.ZipFile(archive_conversion.result_path, 'r') as zipf:
+                    # 获取 ZIP 中的第一个 PDF 文件
+                    pdf_files = [f for f in zipf.namelist() if f.lower().endswith('.pdf')]
+                    if not pdf_files:
+                        raise Exception("转换结果中没有找到 PDF 文件")
+
+                    # 提取第一个 PDF
+                    with zipf.open(pdf_files[0]) as source, open(output_path, 'wb') as target:
+                        shutil.copyfileobj(source, target)
+
+                print(f"提取 PDF 到: {output_path}")
+
+                # 清理临时转换记录和结果文件
+                if archive_conversion.result_path and os.path.exists(archive_conversion.result_path):
+                    os.remove(archive_conversion.result_path)
+                self.db.delete(archive_conversion)
+                self.db.delete(temp_file)
+
+                # 更新转换任务状态
+                conversion.status = 'completed'
+                conversion.result_path = output_path
+                conversion.result_filename = output_filename
+                conversion.completed_at = datetime.now()
+
+                # 更新原文件状态
+                db_file.status = 'converted'
+
+                self.db.commit()
+                self.db.refresh(conversion)
+
+                return conversion
+
+            finally:
+                # 清理临时目录
+                if temp_dir and os.path.exists(temp_dir):
+                    try:
+                        shutil.rmtree(temp_dir)
+                    except Exception as e:
+                        print(f"清理临时目录失败: {e}")
 
         except Exception as e:
             # 转换失败，更新状态
