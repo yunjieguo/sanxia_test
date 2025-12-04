@@ -1,0 +1,21 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(Select-Object Id, ProcessName, StartTime)",
+      "Bash(cmd /c \"where soffice.exe 2>nul || echo LibreOffice not found\")",
+      "Bash(if [ -f \"/c/Program Files/LibreOffice/program/soffice.exe\" ])",
+      "Bash(then echo \"LibreOffice found at C:\\Program Files\\LibreOffice\")",
+      "Bash(elif [ -f \"/c/Program Files (x86)/LibreOffice/program/soffice.exe\" ])",
+      "Bash(then echo \"LibreOffice found at C:\\Program Files (x86)\\LibreOffice\")",
+      "Bash(else echo \"LibreOffice NOT installed\")",
+      "Bash(fi)",
+      "Bash(python:*)"
+    ],
+    "deny": [],
+    "ask": []
+  },
+  "enabledMcpjsonServers": [
+    "browser-tools"
+  ],
+  "enableAllProjectMcpServers": true
+}

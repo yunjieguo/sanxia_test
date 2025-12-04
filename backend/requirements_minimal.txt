@@ -1,0 +1,14 @@
+# FastAPI 核心框架 - 只安装纯 Python 包
+fastapi
+uvicorn[standard]
+python-multipart
+pydantic
+pydantic-settings
+
+# 数据库
+sqlalchemy
+aiosqlite
+
+# 工具库
+python-dotenv
+aiofiles
