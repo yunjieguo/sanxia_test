@@ -22,7 +22,13 @@
       "Bash(timeout /t 3)",
       "Bash(ping:*)",
       "Bash(cat:*)",
-      "Bash(npm install)"
+      "Bash(npm install)",
+      "Bash(where /R D:\\wwwroot\\demo\\sanxia_demo *.ttf *.ttc:*)",
+      "Bash(test:*)",
+      "Bash(if [ -d \"D:/wwwroot/demo/sanxia_demo/fonts\" ])",
+      "Bash(then rm -rf \"D:/wwwroot/demo/sanxia_demo/fonts\")",
+      "Bash(else echo \"fonts/ 目录不存在\")",
+      "Bash(ls:*)"
     ],
     "deny": [],
     "ask": []

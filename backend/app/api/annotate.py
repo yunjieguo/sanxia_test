@@ -1,12 +1,19 @@
 """标注 API 路由"""
 from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 from typing import List
 import json
+import os
+import uuid
+from pathlib import Path
+import glob
 
 from ..database import get_db
 from ..models.annotation import Annotation, Template
 from ..models.file import File
+from ..models.conversion import Conversion
+from ..config import settings
 from ..schemas.annotation import (
     AnnotationCreate,
     AnnotationUpdate,
@@ -61,6 +68,67 @@ def _template_to_response(template: Template) -> TemplateResponse:
         created_at=template.created_at,
         updated_at=template.updated_at,
     )
+
+
+def _get_field_label(field_name: str) -> str:
+    mapping = {
+        "contract_name": "合同名称",
+        "contract_date": "合同日期",
+        "contract_number": "合同编号",
+        "contract_amount": "合同金额",
+        "party_a": "甲方名称",
+        "party_b": "乙方名称",
+    }
+    return mapping.get(field_name, field_name or "")
+
+
+def _choose_cjk_font():
+    """尝试查找可显示中文的字体文件路径"""
+
+    # 优先尝试的中文字体列表（按优先级排序）
+    priority_fonts = [
+        # 项目目录中的常见中文字体
+        "simhei.ttf",      # 黑体
+        "simkai.ttf",      # 楷体
+        "simfang.ttf",     # 仿宋
+        "simsun.ttc",      # 宋体
+        "msyh.ttc",        # 微软雅黑
+        "msyhbd.ttc",      # 微软雅黑粗体
+        "msyhl.ttc",       # 微软雅黑细体
+        "msjh.ttc",        # 微软正黑体
+        "mingliub.ttc",    # 细明体
+    ]
+
+    # 在项目 backend/fonts/ 目录中查找优先字体
+    backend_fonts_dir = Path(__file__).resolve().parents[2] / "fonts"
+
+    for font_name in priority_fonts:
+        # 在 backend/fonts/ 目录查找
+        if backend_fonts_dir.exists():
+            font_path = backend_fonts_dir / font_name
+            if font_path.exists():
+                print(f"[export] 找到可用中文字体: {font_path}")
+                return str(font_path)
+
+    # 系统常见中文字体
+    system_fonts = [
+        r"C:\Windows\Fonts\msyh.ttc",      # 微软雅黑
+        r"C:\Windows\Fonts\simhei.ttf",    # 黑体
+        r"C:\Windows\Fonts\simsun.ttc",    # 宋体
+        r"C:\Windows\Fonts\simkai.ttf",    # 楷体
+        r"/System/Library/Fonts/PingFang.ttc",           # macOS 苹方
+        r"/System/Library/Fonts/STHeiti Medium.ttc",     # macOS 黑体
+        r"/usr/share/fonts/truetype/wqy/wqy-zenhei.ttc", # Linux 文泉驿
+        r"/usr/share/fonts/truetype/arphic/uming.ttc",   # Linux AR PL UMing
+    ]
+
+    for path in system_fonts:
+        if Path(path).exists():
+            print(f"[export] 找到可用系统中文字体: {path}")
+            return str(path)
+
+    print("[export] 未找到任何可用的中文字体文件")
+    return None
 
 
 # ==================== 标注相关接口 ====================
@@ -203,6 +271,132 @@ async def get_annotation(
         raise HTTPException(status_code=404, detail="标注不存在")
 
     return _to_response(annotation)
+
+
+@router.get("/file/{file_id}/export", summary="导出带标注的 PDF")
+async def export_annotated_pdf(
+    file_id: int,
+    db: Session = Depends(get_db)
+):
+    """
+    将标注绘制到 PDF 上后导出，不影响原始文件。
+    优先使用原 PDF；若原文件不是 PDF，则尝试使用最新的转换结果。
+    """
+    file = db.query(File).filter(File.id == file_id).first()
+    if not file:
+        raise HTTPException(status_code=404, detail="文件不存在")
+
+    # 选择可用的 PDF 路径
+    base_path = None
+    if file.file_type.lower() == "pdf" and os.path.exists(file.file_path):
+        base_path = file.file_path
+    else:
+        conv = (
+            db.query(Conversion)
+            .filter(Conversion.file_id == file_id, Conversion.status == "completed")
+            .order_by(Conversion.completed_at.desc())
+            .first()
+        )
+        if conv and conv.result_path and os.path.exists(conv.result_path):
+            base_path = conv.result_path
+
+    if not base_path:
+        raise HTTPException(status_code=400, detail="未找到可用于导出的 PDF 文件，请先转换为 PDF")
+
+    annotations = db.query(Annotation).filter(Annotation.file_id == file_id).all()
+    if not annotations:
+        raise HTTPException(status_code=400, detail="该文件暂无标注")
+
+    # 生成导出路径
+    output_filename = f"{uuid.uuid4()}.pdf"
+    output_path = os.path.join(settings.OUTPUT_DIR, output_filename)
+
+    try:
+        import fitz
+    except ImportError:
+        raise HTTPException(status_code=500, detail="缺少 PyMuPDF，请先安装 pymupdf 依赖")
+
+    try:
+        doc = fitz.open(base_path)
+        font_file_path = _choose_cjk_font()
+        if not font_file_path:
+            raise HTTPException(
+                status_code=500,
+                detail="未找到可用中文字体，请在 backend/fonts/ 目录或系统字体目录放置中文字体文件后重试"
+            )
+
+        # 记录每个页面是否已插入字体
+        pages_with_font = set()
+
+        for ann in annotations:
+            try:
+                coords = json.loads(ann.coordinates) if ann.coordinates else {}
+            except Exception:
+                coords = {}
+
+            page_index = (ann.page_number or 1) - 1
+            if page_index < 0 or page_index >= len(doc):
+                continue
+
+            x = coords.get("x", 0)
+            y = coords.get("y", 0)
+            w = coords.get("width", 0)
+            h = coords.get("height", 0)
+            font_size = coords.get("font_size") or coords.get("fontSize") or 12
+
+            page = doc[page_index]
+            rect = fitz.Rect(x, y, x + w, y + h)
+
+            # 为该页面插入字体（每个页面只需插入一次）
+            if page_index not in pages_with_font:
+                try:
+                    page.insert_font(fontfile=font_file_path, fontname="cjkfont")
+                    pages_with_font.add(page_index)
+                except Exception as e:
+                    print(f"[export] 页面{page_index}字体插入失败: {e}")
+
+            # 颜色设置
+            stroke_color = fitz.utils.getColor("red")
+            fill_color = fitz.utils.getColor("lightpink")
+
+            page.draw_rect(rect, color=stroke_color, fill=fill_color, width=1)
+
+            # 标注文本
+            label = _get_field_label(ann.field_name)
+            value = ann.field_value or ""
+
+            # 使用正确的API：同时传入fontname和fontfile参数
+            page.insert_text(
+                fitz.Point(rect.x0 + 2, rect.y0 - 2),
+                label,
+                fontsize=font_size,
+                color=stroke_color,
+                fontname="cjkfont",
+                fontfile=font_file_path
+            )
+            if value:
+                page.insert_text(
+                    fitz.Point(rect.x0 + 2, rect.y0 + font_size + 2),
+                    value,
+                    fontsize=font_size,
+                    color=fitz.utils.getColor("black"),
+                    fontname="cjkfont",
+                    fontfile=font_file_path
+                )
+
+        doc.save(output_path)
+        doc.close()
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"导出失败: {e}")
+
+    download_name = f"{os.path.splitext(file.original_name)[0]}_annotated.pdf"
+    return FileResponse(
+        path=output_path,
+        filename=download_name,
+        media_type="application/pdf"
+    )
 
 
 @router.put("/{annotation_id}", response_model=AnnotationResponse, summary="更新标注")

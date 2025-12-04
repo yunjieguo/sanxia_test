@@ -39,6 +39,10 @@
             <el-icon><FolderOpened /></el-icon>
             加载标注
           </el-button>
+          <el-button :disabled="!selectedFileId" @click="downloadAnnotatedPdf">
+            <el-icon><Download /></el-icon>
+            导出带标注PDF
+          </el-button>
         </div>
       </div>
     </el-card>
@@ -394,7 +398,8 @@ import {
   createTemplate,
   deleteTemplate,
   applyTemplate,
-  updateAnnotation
+  updateAnnotation,
+  getAnnotatedDownloadUrl
 } from '../api/annotate'
 import { getConversionDownloadUrl } from '../api/convert'
 
@@ -560,11 +565,17 @@ const setupCanvas = () => {
     const extraHeight = 90
     const displayWidth = pdfElement.offsetWidth
     const displayHeight = pdfElement.offsetHeight
-    canvas.width = displayWidth
-    canvas.height = displayHeight + extraHeight
+    const dpr = window.devicePixelRatio || 1
+
+    canvas.width = displayWidth * dpr
+    canvas.height = (displayHeight + extraHeight) * dpr
     canvas.style.width = `${displayWidth}px`
     canvas.style.height = `${displayHeight + extraHeight}px`
-    canvasContext.value = canvas.getContext('2d')
+
+    const ctx = canvas.getContext('2d')
+    ctx.imageSmoothingEnabled = true
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
+    canvasContext.value = ctx
     redrawAnnotations()
   }
 }
@@ -730,6 +741,7 @@ const redrawAnnotations = () => {
 
   // 清空画布
   ctx.clearRect(0, 0, canvas.width, canvas.height)
+  const dpr = window.devicePixelRatio || 1
 
   // 绘制当前页面的标注
   pageAnnotations.value.forEach(annotation => {
@@ -737,7 +749,7 @@ const redrawAnnotations = () => {
     const fontSize = coords.font_size || coords.fontSize || 12
     const isActive = selectedAnnotation.value === annotation
     ctx.strokeStyle = isActive ? '#f56c6c' : getAnnotationColor(annotation.annotation_type)
-    ctx.lineWidth = isActive ? 3 : 2
+    ctx.lineWidth = (isActive ? 3 : 2) / dpr
     ctx.strokeRect(coords.x, coords.y, coords.width, coords.height)
 
     if (isActive) {
@@ -1128,6 +1140,21 @@ const applyTemplateToFile = async (templateId) => {
 const viewTemplate = (template) => {
   previewTemplate.value = template
   showTemplatePreviewDialog.value = true
+}
+
+// 导出带标注 PDF
+const downloadAnnotatedPdf = () => {
+  if (!selectedFileId.value) {
+    ElMessage.warning('请先选择文件')
+    return
+  }
+  const url = getAnnotatedDownloadUrl(selectedFileId.value)
+  const link = document.createElement('a')
+  link.href = url
+  document.body.appendChild(link)
+  link.click()
+  document.body.removeChild(link)
+  ElMessage.success('已开始下载带标注 PDF')
 }
 
 // 跳转到转换页面

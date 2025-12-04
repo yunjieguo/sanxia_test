@@ -172,3 +172,12 @@ export function applyTemplate(templateId, fileId) {
     data: { file_id: fileId }
   })
 }
+
+/**
+ * 导出带标注的 PDF
+ * @param {number} fileId 文件ID
+ * @returns {string} 下载链接
+ */
+export function getAnnotatedDownloadUrl(fileId) {
+  return `/api/annotations/file/${fileId}/export`
+}
