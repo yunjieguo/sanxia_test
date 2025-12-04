@@ -9,6 +9,8 @@ from pathlib import Path
 
 from ..config import settings
 from ..models.file import File
+from ..models.conversion import Conversion
+from ..models.annotation import Annotation
 
 
 class FileHandler:
@@ -189,18 +191,29 @@ class FileHandler:
         if not db_file:
             raise HTTPException(status_code=404, detail="文件不存在")
 
-        # 删除物理文件
-        if os.path.exists(db_file.file_path):
-            try:
-                os.remove(db_file.file_path)
-            except Exception as e:
-                raise HTTPException(status_code=500, detail=f"删除文件失败: {str(e)}")
-
-        # 删除数据库记录
         try:
+            # 先清理附属记录，避免外键或脏数据残留
+            self.db.query(Annotation).filter(Annotation.file_id == file_id).delete()
+
+            conversions = self.db.query(Conversion).filter(Conversion.file_id == file_id).all()
+            for conv in conversions:
+                if conv.result_path and os.path.exists(conv.result_path):
+                    try:
+                        os.remove(conv.result_path)
+                    except Exception as e:
+                        # 不阻断主流程，记录日志便于排查
+                        print(f"删除转换结果文件异常: {e}")
+                self.db.delete(conv)
+
+            # 删除物理文件
+            if os.path.exists(db_file.file_path):
+                os.remove(db_file.file_path)
+
+            # 删除数据库记录
             self.db.delete(db_file)
             self.db.commit()
         except Exception as e:
+            self.db.rollback()
             raise HTTPException(status_code=500, detail=f"数据库操作失败: {str(e)}")
 
         return True

@@ -56,7 +56,7 @@ frontend/
 │   │   ├── Upload.vue     # 文件上传
 │   │   ├── Convert.vue    # 文档转换
 │   │   ├── Editor.vue     # PDF编辑
-│   │   └── Annotator.vue  # 智能标注
+│   │   └── Annotator.vue  # 文档标注
 │   ├── components/        # 通用组件
 │   ├── api/              # API 接口
 │   ├── store/            # 状态管理
@@ -86,7 +86,7 @@ frontend/
 - 注释/批注
 - 页面管理
 
-### 4. 智能标注模块
+### 4. 文档标注模块
 - 可视化标注工具
 - 样本训练
 - 自动信息抽取

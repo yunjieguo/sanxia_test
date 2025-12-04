@@ -6,7 +6,7 @@
 
 - 📄 文档转换：支持多种格式转 PDF
 - ✏️ PDF 编辑：文本编辑、表单编辑、注释批注、页面管理
-- 🏷️ 智能标注：可视化标注和信息自动抽取
+- 🏷️ 文档标注：可视化标注和信息自动抽取
 
 ## 技术栈
 
@@ -83,7 +83,7 @@ backend/
 - `POST /api/edit/annotation` - 添加注释
 - `POST /api/edit/page` - 页面管理
 
-### 智能标注
+### 文档标注
 - `POST /api/annotate/create` - 创建标注
 - `POST /api/annotate/extract` - 信息抽取
 - `GET /api/annotate/templates` - 获取模板列表

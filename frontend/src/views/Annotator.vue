@@ -1,50 +1,1135 @@
 <template>
   <div class="annotator-page">
-    <el-card>
-      <template #header>
-        <div class="card-header">
+    <!-- 顶部工具栏 -->
+    <el-card class="toolbar-card" shadow="never">
+      <div class="toolbar">
+        <div class="toolbar-left">
           <el-icon><PriceTag /></el-icon>
-          <span>智能标注</span>
+          <span class="toolbar-title">文档标注</span>
         </div>
-      </template>
-
-      <el-alert
-        title="功能说明"
-        type="info"
-        description="通过标注样本训练，实现文档关键信息的自动识别和抽取"
-        :closable="false"
-        style="margin-bottom: 20px"
-      />
-
-      <div class="annotator-content">
-        <el-empty description="标注功能开发中，敬请期待..." />
+        <div class="toolbar-center">
+          <el-input
+            v-model="searchKeyword"
+            placeholder="按文件名搜索 PDF"
+            clearable
+            size="small"
+            style="width: 240px; margin-right: 10px"
+          />
+          <el-select
+            v-model="selectedFileId"
+            placeholder="选择要标注的文件"
+            style="width: 300px"
+            @change="loadFile"
+            clearable
+          >
+            <el-option
+              v-for="file in filteredFiles"
+              :key="file.id"
+              :label="file.original_name"
+              :value="file.id"
+            />
+          </el-select>
+        </div>
+        <div class="toolbar-right">
+          <el-button type="primary" :disabled="!selectedFileId" @click="saveAnnotations">
+            <el-icon><DocumentChecked /></el-icon>
+            保存标注
+          </el-button>
+          <el-button :disabled="!selectedFileId" @click="loadAnnotations">
+            <el-icon><FolderOpened /></el-icon>
+            加载标注
+          </el-button>
+          <el-button :disabled="!selectedFileId" @click="showTemplateDialog = true">
+            <el-icon><Document /></el-icon>
+            模板管理
+          </el-button>
+        </div>
       </div>
     </el-card>
+
+    <!-- 主内容区 -->
+    <div class="main-content" v-if="selectedFileId">
+      <!-- 左侧：PDF 预览和标注画布 -->
+      <el-card class="pdf-container" shadow="never">
+        <template #header>
+          <div class="pdf-header">
+            <span>PDF 预览</span>
+            <div class="pdf-controls">
+              <el-button-group>
+                <el-button size="small" :disabled="currentPage <= 1" @click="prevPage">
+                  <el-icon><ArrowLeft /></el-icon>
+                  上一页
+                </el-button>
+                <el-button size="small" disabled>
+                  {{ currentPage }} / {{ totalPages }}
+                </el-button>
+                <el-button size="small" :disabled="currentPage >= totalPages" @click="nextPage">
+                  下一页
+                  <el-icon><ArrowRight /></el-icon>
+                </el-button>
+              </el-button-group>
+              <el-button-group style="margin-left: 10px">
+                <el-button size="small" @click="zoomOut">
+                  <el-icon><ZoomOut /></el-icon>
+                </el-button>
+                <el-button size="small" disabled>
+                  {{ Math.round(scale * 100) }}%
+                </el-button>
+                <el-button size="small" @click="zoomIn">
+                  <el-icon><ZoomIn /></el-icon>
+                </el-button>
+              </el-button-group>
+            </div>
+          </div>
+        </template>
+
+        <div class="pdf-viewer-wrapper" ref="pdfViewerWrapper">
+          <div class="pdf-viewer" :style="{ transform: `scale(${scale})`, transformOrigin: 'top center' }">
+            <vue-pdf-embed
+              ref="pdfEmbed"
+              :source="pdfSource"
+              :page="currentPage"
+              @loaded="onPdfLoaded"
+              @error="onPdfError"
+            />
+            <!-- Canvas 标注层 -->
+            <canvas
+              ref="annotationCanvas"
+              class="annotation-canvas"
+              @mousedown="startDrawing"
+              @mousemove="drawing"
+              @mouseup="stopDrawing"
+            ></canvas>
+          </div>
+        </div>
+      </el-card>
+
+      <!-- 右侧：工具面板和标注列表 -->
+      <el-card class="tools-container" shadow="never">
+        <el-tabs v-model="activeTab">
+          <!-- 标注工具 -->
+          <el-tab-pane label="标注工具" name="tools">
+            <div class="tools-panel">
+              <el-form label-width="80px">
+                <el-form-item label="标注类型">
+                  <el-select v-model="currentTool.type" placeholder="选择标注类型">
+                    <el-option label="短文本" value="text" />
+                    <el-option label="长文本" value="long_text" />
+                    <el-option label="图片" value="image" />
+                    <el-option label="表格" value="table" />
+                  </el-select>
+                </el-form-item>
+
+                <el-form-item label="字段名称">
+                  <el-select
+                    v-model="currentTool.fieldName"
+                    placeholder="选择或输入字段名"
+                    allow-create
+                    filterable
+                  >
+                    <el-option label="合同名称" value="contract_name" />
+                    <el-option label="合同日期" value="contract_date" />
+                    <el-option label="合同编号" value="contract_number" />
+                    <el-option label="合同金额" value="contract_amount" />
+                    <el-option label="甲方名称" value="party_a" />
+                    <el-option label="乙方名称" value="party_b" />
+                  </el-select>
+                </el-form-item>
+
+                <el-form-item label="字段值">
+                  <el-input
+                    v-model="currentTool.fieldValue"
+                    placeholder="可选，提取后自动填充"
+                    type="textarea"
+                    :rows="2"
+                  />
+                </el-form-item>
+
+                <el-form-item>
+                  <el-button type="primary" :disabled="!canAnnotate" @click="enableDrawMode">
+                    <el-icon><Edit /></el-icon>
+                    开始标注
+                  </el-button>
+                  <el-button @click="cancelDrawMode" v-if="isDrawing">
+                    取消
+                  </el-button>
+                </el-form-item>
+              </el-form>
+
+              <el-divider />
+
+              <div class="tool-tips">
+                <el-alert
+                  title="使用提示"
+                  type="info"
+                  :closable="false"
+                  description="1. 选择标注类型和字段名称&#10;2. 点击“开始标注”&#10;3. 在 PDF 上拖动鼠标框选区域&#10;4. 完成后点击“保存标注”"
+                />
+              </div>
+            </div>
+          </el-tab-pane>
+
+          <!-- 标注列表 -->
+          <el-tab-pane label="标注列表" name="annotations">
+            <div class="annotations-header">
+              <div>
+                <strong>标注列表</strong>
+                <span v-if="pageAnnotations.length">（{{ pageAnnotations.length }} 条）</span>
+              </div>
+              <el-button
+                class="annotations-clear"
+                type="danger"
+                size="small"
+                link
+                :disabled="annotations.length === 0"
+                @click="clearAnnotations"
+              >
+                清空
+              </el-button>
+            </div>
+            <div class="annotations-list">
+              <div v-if="annotations.length === 0" class="empty-annotations">
+                <el-empty description="暂无标注" />
+              </div>
+              <div v-else>
+                <div
+                  v-for="(annotation, index) in pageAnnotations"
+                  :key="annotation.id || index"
+                  class="annotation-item"
+                  :class="{ 'active': selectedAnnotation === annotation }"
+                  @click="selectAnnotation(annotation)"
+                >
+                  <div class="annotation-header">
+                    <el-tag :type="getAnnotationTypeColor(annotation.annotation_type)" size="small">
+                      {{ getAnnotationTypeName(annotation.annotation_type) }}
+                    </el-tag>
+                    <span class="field-name">{{ annotation.field_name }}</span>
+                    <el-button
+                      type="danger"
+                      size="small"
+                      text
+                      @click.stop="deleteAnnotation(annotation)"
+                    >
+                      <el-icon><Delete /></el-icon>
+                    </el-button>
+                  </div>
+                  <div class="annotation-value" v-if="annotation.field_value">
+                    {{ annotation.field_value }}
+                  </div>
+                  <div class="annotation-coords">
+                    页码: {{ annotation.page_number }} |
+                    坐标: ({{ Math.round(annotation.coordinates.x) }}, {{ Math.round(annotation.coordinates.y) }})
+                  </div>
+                </div>
+              </div>
+            </div>
+          </el-tab-pane>
+
+          <!-- 模板 -->
+          <el-tab-pane label="模板" name="templates">
+            <div class="templates-panel">
+              <el-button type="primary" @click="showCreateTemplateDialog = true" style="margin-bottom: 10px">
+                <el-icon><Plus /></el-icon>
+                创建模板
+              </el-button>
+              <div v-if="templates.length === 0">
+                <el-empty description="暂无模板" />
+              </div>
+              <div v-else>
+                <div
+                  v-for="template in templates"
+                  :key="template.id"
+                  class="template-item"
+                >
+                  <div class="template-header">
+                    <span class="template-name">{{ template.template_name }}</span>
+                    <div>
+                      <el-button size="small" @click="applyTemplateToFile(template.id)">
+                        应用
+                      </el-button>
+                      <el-button type="danger" size="small" text @click="deleteTemplateById(template.id)">
+                        <el-icon><Delete /></el-icon>
+                      </el-button>
+                    </div>
+                  </div>
+                  <div class="template-info">
+                    <el-tag size="small">{{ template.document_type }}</el-tag>
+                    <span v-if="template.description">{{ template.description }}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </el-tab-pane>
+        </el-tabs>
+      </el-card>
+    </div>
+
+    <!-- 未选择文件时的提示 -->
+    <el-card v-else class="empty-state">
+      <el-empty description="请先选择要标注的 PDF 文件">
+        <el-button type="primary" @click="goToConvert">
+          <el-icon><Upload /></el-icon>
+          转换文件为 PDF
+        </el-button>
+      </el-empty>
+    </el-card>
+
+    <!-- 创建模板对话框 -->
+    <el-dialog v-model="showCreateTemplateDialog" title="创建标注模板" width="600px">
+      <el-form :model="newTemplate" label-width="100px">
+        <el-form-item label="模板名称">
+          <el-input v-model="newTemplate.template_name" placeholder="例如：标准采购合同" />
+        </el-form-item>
+        <el-form-item label="文档类型">
+          <el-input v-model="newTemplate.document_type" placeholder="例如：contract" />
+        </el-form-item>
+        <el-form-item label="模板描述">
+          <el-input v-model="newTemplate.description" type="textarea" :rows="2" />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="showCreateTemplateDialog = false">取消</el-button>
+        <el-button type="primary" @click="createNewTemplate">创建</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
 <script setup>
-// 标注功能待实现
+import { ref, computed, onMounted, watch, nextTick } from 'vue'
+import { useRouter } from 'vue-router'
+import { ElMessage, ElMessageBox } from 'element-plus'
+import {
+  PriceTag, DocumentChecked, FolderOpened, Document, ArrowLeft, ArrowRight,
+  ZoomIn, ZoomOut, Edit, Delete, Upload, Plus
+} from '@element-plus/icons-vue'
+import VuePdfEmbed from 'vue-pdf-embed'
+import { getFileList, getDownloadUrl } from '../api/upload'
+import {
+  createAnnotationsBatch,
+  getFileAnnotations,
+  deleteAnnotation as deleteAnnotationApi,
+  deleteFileAnnotations,
+  getTemplates,
+  createTemplate,
+  deleteTemplate,
+  applyTemplate
+} from '../api/annotate'
+import { getConversionDownloadUrl } from '../api/convert'
+
+const router = useRouter()
+
+// 文件列表
+const fileList = ref([])
+const selectedFileId = ref(null)
+const pdfSource = ref(null)
+const searchKeyword = ref('')
+const conversionMap = ref(loadConversionMaps())
+
+// PDF 相关
+const pdfEmbed = ref(null)
+const pdfViewerWrapper = ref(null)
+const currentPage = ref(1)
+const totalPages = ref(0)
+const scale = ref(1.0)
+
+// 标注画布
+const annotationCanvas = ref(null)
+const canvasContext = ref(null)
+const isDrawing = ref(false)
+const drawMode = ref(false)
+const startPoint = ref({ x: 0, y: 0 })
+const currentRect = ref(null)
+
+// 标注数据
+const annotations = ref([])
+const selectedAnnotation = ref(null)
+const currentTool = ref({
+  type: 'text',
+  fieldName: '',
+  fieldValue: ''
+})
+
+// UI 状态
+const activeTab = ref('tools')
+const showTemplateDialog = ref(false)
+const showCreateTemplateDialog = ref(false)
+
+// 模板
+const templates = ref([])
+const newTemplate = ref({
+  template_name: '',
+  document_type: '',
+  description: ''
+})
+
+// 计算属性
+const pdfFiles = computed(() => {
+  return fileList.value.filter(file =>
+    file.file_type.toLowerCase() === 'pdf' || file.status === 'converted'
+  )
+})
+
+const filteredFiles = computed(() => {
+  const keyword = searchKeyword.value.trim().toLowerCase()
+  if (!keyword) return pdfFiles.value
+  return pdfFiles.value.filter(file => file.original_name.toLowerCase().includes(keyword))
+})
+
+const pageAnnotations = computed(() => {
+  return annotations.value.filter(ann => ann.page_number === currentPage.value)
+})
+
+const canAnnotate = computed(() => {
+  return currentTool.value.type && currentTool.value.fieldName
+})
+
+// 生命周期
+onMounted(() => {
+  loadFileList()
+  loadTemplates()
+})
+
+// 监听文件选择
+watch(selectedFileId, (newId) => {
+  if (newId) {
+    loadFile()
+  } else {
+    pdfSource.value = null
+    annotations.value = []
+  }
+})
+
+// 监听页面变化
+watch(currentPage, () => {
+  redrawAnnotations()
+})
+
+// 加载文件列表
+const loadFileList = async () => {
+  try {
+    const response = await getFileList()
+    const files = response.files || []
+    fileList.value = files.map(f => ({
+      ...f,
+      conversion_id: conversionMap.value[f.id] || f.conversion_id
+    }))
+  } catch (error) {
+    ElMessage.error('获取文件列表失败: ' + (error.message || '未知错误'))
+  }
+}
+
+// 加载文件
+const loadFile = async () => {
+  if (!selectedFileId.value) return
+
+  const file = fileList.value.find(f => f.id === selectedFileId.value)
+  if (!file) {
+    ElMessage.error('文件不存在')
+    return
+  }
+
+  // 设置 PDF 源
+  const conversionId = file.conversion_id || resolveConversionId(file.id)
+
+  if (file.file_type.toLowerCase() === 'pdf') {
+    pdfSource.value = getDownloadUrl(file.id)
+  } else if (file.status === 'converted' && conversionId) {
+    pdfSource.value = getConversionDownloadUrl(conversionId)
+  } else {
+    pdfSource.value = null
+    ElMessage.warning('该文件尚未转换为可预览的 PDF，请先去转换页面完成转换')
+  }
+
+  currentPage.value = 1
+  annotations.value = []
+
+  // 加载已有标注
+  await loadAnnotations()
+}
+
+// PDF 加载完成
+const onPdfLoaded = ({ numPages }) => {
+  totalPages.value = numPages
+  nextTick(() => {
+    setupCanvas()
+    updateScaleToFit()
+  })
+}
+
+// PDF 加载错误
+const onPdfError = (error) => {
+  ElMessage.error('PDF 加载失败: ' + error.message)
+}
+
+// 设置画布
+const setupCanvas = () => {
+  const canvas = annotationCanvas.value
+  const pdfElement = pdfEmbed.value?.$el?.querySelector('canvas')
+
+  if (canvas && pdfElement) {
+    const extraHeight = 90
+    canvas.width = pdfElement.width
+    canvas.height = pdfElement.height + extraHeight
+    canvas.style.width = `${pdfElement.offsetWidth}px`
+    canvas.style.height = `${pdfElement.offsetHeight + extraHeight}px`
+    canvasContext.value = canvas.getContext('2d')
+    redrawAnnotations()
+  }
+}
+
+// 页面导航
+const prevPage = () => {
+  if (currentPage.value > 1) {
+    currentPage.value--
+  }
+}
+
+const nextPage = () => {
+  if (currentPage.value < totalPages.value) {
+    currentPage.value++
+  }
+}
+
+// 缩放
+const zoomIn = () => {
+  scale.value = Math.min(scale.value + 0.1, 3.0)
+  nextTick(setupCanvas)
+}
+
+const zoomOut = () => {
+  scale.value = Math.max(scale.value - 0.1, 0.3)
+  nextTick(setupCanvas)
+}
+// 根据容器宽度自适应 PDF 宽度
+const updateScaleToFit = () => {
+  nextTick(() => {
+    const wrapper = pdfViewerWrapper.value
+    const pdfCanvas = pdfEmbed.value?.$el?.querySelector('canvas')
+    if (!wrapper || !pdfCanvas) return
+
+    // 预留一些左右间距，避免滚动条遮挡
+    const wrapperWidth = Math.max(wrapper.clientWidth - 24, 0)
+    const pdfWidth = pdfCanvas.width || pdfCanvas.offsetWidth
+    if (wrapperWidth && pdfWidth) {
+      const fitScale = wrapperWidth / pdfWidth
+      scale.value = Math.min(Math.max(fitScale, 0.5), 3.0)
+      nextTick(setupCanvas)
+    }
+  })
+}
+
+// 启用绘制模式
+const enableDrawMode = () => {
+  if (!canAnnotate.value) {
+    ElMessage.warning('请先选择标注类型和字段名称')
+    return
+  }
+  drawMode.value = true
+  ElMessage.info('请在 PDF 上拖动鼠标框选区域')
+}
+
+// 取消绘制模式
+const cancelDrawMode = () => {
+  drawMode.value = false
+  isDrawing.value = false
+  currentRect.value = null
+  redrawAnnotations()
+}
+
+// 开始绘制
+const startDrawing = (e) => {
+  if (!drawMode.value) return
+
+  const canvas = annotationCanvas.value
+  const rect = canvas.getBoundingClientRect()
+  startPoint.value = {
+    x: (e.clientX - rect.left) / scale.value,
+    y: (e.clientY - rect.top) / scale.value
+  }
+  isDrawing.value = true
+}
+
+// 绘制中
+const drawing = (e) => {
+  if (!isDrawing.value || !drawMode.value) return
+
+  const canvas = annotationCanvas.value
+  const rect = canvas.getBoundingClientRect()
+  const currentX = (e.clientX - rect.left) / scale.value
+  const currentY = (e.clientY - rect.top) / scale.value
+
+  currentRect.value = {
+    x: Math.min(startPoint.value.x, currentX),
+    y: Math.min(startPoint.value.y, currentY),
+    width: Math.abs(currentX - startPoint.value.x),
+    height: Math.abs(currentY - startPoint.value.y)
+  }
+
+  redrawAnnotations()
+  drawCurrentRect()
+}
+
+// 停止绘制
+const stopDrawing = () => {
+  if (!isDrawing.value || !drawMode.value || !currentRect.value) return
+
+  // 创建标注
+  const annotation = {
+    page_number: currentPage.value,
+    annotation_type: currentTool.value.type,
+    field_name: currentTool.value.fieldName,
+    field_value: currentTool.value.fieldValue || '',
+    coordinates: currentRect.value
+  }
+
+  annotations.value.push(annotation)
+  ElMessage.success('标注已添加')
+
+  // 重置状态
+  isDrawing.value = false
+  drawMode.value = false
+  currentRect.value = null
+  redrawAnnotations()
+}
+
+// 绘制当前矩形
+const drawCurrentRect = () => {
+  if (!currentRect.value || !canvasContext.value) return
+
+  const ctx = canvasContext.value
+  ctx.strokeStyle = '#409EFF'
+  ctx.lineWidth = 2
+  ctx.strokeRect(
+    currentRect.value.x,
+    currentRect.value.y,
+    currentRect.value.width,
+    currentRect.value.height
+  )
+}
+
+// 重绘所有标注
+const redrawAnnotations = () => {
+  const canvas = annotationCanvas.value
+  const ctx = canvasContext.value
+
+  if (!canvas || !ctx) return
+
+  // 清空画布
+  ctx.clearRect(0, 0, canvas.width, canvas.height)
+
+  // 绘制当前页面的标注
+  pageAnnotations.value.forEach(annotation => {
+    const coords = annotation.coordinates
+    ctx.strokeStyle = getAnnotationColor(annotation.annotation_type)
+    ctx.lineWidth = 2
+    ctx.strokeRect(coords.x, coords.y, coords.width, coords.height)
+
+    // 绘制字段名
+    ctx.fillStyle = getAnnotationColor(annotation.annotation_type)
+    ctx.font = '12px Arial'
+    ctx.fillText(annotation.field_name, coords.x, coords.y - 5)
+  })
+}
+
+// 获取标注颜色
+const getAnnotationColor = (type) => {
+  const colors = {
+    text: '#409EFF',
+    long_text: '#67C23A',
+    image: '#E6A23C',
+    table: '#F56C6C'
+  }
+  return colors[type] || '#909399'
+}
+
+// 获取标注类型名称
+const getAnnotationTypeName = (type) => {
+  const names = {
+    text: '短文本',
+    long_text: '长文本',
+    image: '图片',
+    table: '表格'
+  }
+  return names[type] || type
+}
+
+// 获取标注类型颜色
+const getAnnotationTypeColor = (type) => {
+  const colors = {
+    text: 'primary',
+    long_text: 'success',
+    image: 'warning',
+    table: 'danger'
+  }
+  return colors[type] || 'info'
+}
+
+// 选择标注
+const selectAnnotation = (annotation) => {
+  selectedAnnotation.value = annotation
+}
+
+// 删除标注
+const deleteAnnotation = async (annotation) => {
+  try {
+    await ElMessageBox.confirm(
+      `确认删除此标注吗？`,
+      '删除确认',
+      {
+        confirmButtonText: '确定',
+        cancelButtonText: '取消',
+        type: 'warning'
+      }
+    )
+
+    if (annotation.id) {
+      // 已保存的标注，从服务器删除
+      await deleteAnnotationApi(annotation.id)
+    }
+
+    // 从本地列表删除
+    const index = annotations.value.indexOf(annotation)
+    if (index > -1) {
+      annotations.value.splice(index, 1)
+    }
+
+    redrawAnnotations()
+    ElMessage.success('标注已删除')
+  } catch (error) {
+    if (error !== 'cancel') {
+      ElMessage.error('删除失败: ' + (error.message || '未知错误'))
+    }
+  }
+}
+
+// 清空标注：支持清空本页或全部
+const clearAnnotations = async () => {
+  if (!selectedFileId.value) {
+    ElMessage.warning('请先选择文件')
+    return
+  }
+  try {
+    const action = await ElMessageBox.confirm(
+      '请选择清空范围：',
+      '清空标注',
+      {
+        confirmButtonText: '清空本页',
+        cancelButtonText: '清空全部',
+        type: 'warning',
+        distinguishCancelAndClose: true
+      }
+    )
+
+    // 确认：清空当前页
+    if (action === 'confirm') {
+      const current = [...pageAnnotations.value]
+      for (const ann of current) {
+        if (ann.id) {
+          await deleteAnnotationApi(ann.id)
+        }
+        const idx = annotations.value.indexOf(ann)
+        if (idx > -1) annotations.value.splice(idx, 1)
+      }
+      selectedAnnotation.value = null
+      redrawAnnotations()
+      ElMessage.success('已清空当前页标注')
+      return
+    }
+  } catch (error) {
+    // cancel => 清空全部；close/其他则忽略
+    if (error === 'cancel') {
+      try {
+        await deleteFileAnnotations(selectedFileId.value)
+        annotations.value = []
+        selectedAnnotation.value = null
+        redrawAnnotations()
+        ElMessage.success('已清空全部标注')
+      } catch (err) {
+        ElMessage.error('清空失败: ' + (err.message || '未知错误'))
+      }
+    } else if (error !== 'close') {
+      ElMessage.error('清空失败: ' + (error.message || '未知错误'))
+    }
+  }
+}
+
+// 保存标注
+const saveAnnotations = async () => {
+  if (annotations.value.length === 0) {
+    ElMessage.warning('没有可保存的标注')
+    return
+  }
+
+  try {
+    const unsavedAnnotations = annotations.value.filter(ann => !ann.id)
+
+    if (unsavedAnnotations.length === 0) {
+      ElMessage.info('所有标注已保存')
+      return
+    }
+
+    await createAnnotationsBatch({
+      file_id: selectedFileId.value,
+      annotations: unsavedAnnotations
+    })
+
+    ElMessage.success(`成功保存 ${unsavedAnnotations.length} 个标注`)
+
+    // 重新加载标注
+    await loadAnnotations()
+  } catch (error) {
+    ElMessage.error('保存失败: ' + (error.message || '未知错误'))
+  }
+}
+
+// 加载标注
+const loadAnnotations = async () => {
+  if (!selectedFileId.value) return
+
+  try {
+    const response = await getFileAnnotations(selectedFileId.value)
+    annotations.value = response.annotations || []
+    redrawAnnotations()
+
+    if (annotations.value.length > 0) {
+      ElMessage.success(`加载了 ${annotations.value.length} 个标注`)
+    }
+  } catch (error) {
+    console.error('加载标注失败:', error)
+  }
+}
+
+// 加载模板列表
+const loadTemplates = async () => {
+  try {
+    const response = await getTemplates()
+    templates.value = response.templates || []
+  } catch (error) {
+    console.error('加载模板失败:', error)
+  }
+}
+
+// ======= 工具函数 =======
+function loadConversionMaps() {
+  const keys = [
+    'conversion_map_word',
+    'conversion_map_image',
+    'conversion_map_ofd',
+    'conversion_map_archive'
+  ]
+  const map = {}
+  keys.forEach(key => {
+    try {
+      const stored = localStorage.getItem(key)
+      if (stored) {
+        Object.assign(map, JSON.parse(stored))
+      }
+    } catch (e) {
+      console.error(`读取本地转换映射失败: ${key}`, e)
+    }
+  })
+  return map
+}
+
+function resolveConversionId(fileId) {
+  return conversionMap.value[fileId] || null
+}
+
+// 创建新模板
+const createNewTemplate = async () => {
+  try {
+    // 从当前标注生成字段定义
+    const fields = []
+    const fieldNames = new Set()
+
+    annotations.value.forEach(ann => {
+      if (!fieldNames.has(ann.field_name)) {
+        fieldNames.add(ann.field_name)
+        fields.push({
+          field_name: ann.field_name,
+          field_type: ann.annotation_type,
+          required: false,
+          description: '',
+          page_number: ann.page_number || 1,
+          coordinates: ann.coordinates || null
+        })
+      }
+    })
+
+    if (fields.length === 0) {
+      ElMessage.warning('请先添加一些标注作为模板字段')
+      return
+    }
+
+    await createTemplate({
+      ...newTemplate.value,
+      fields
+    })
+
+    ElMessage.success('模板创建成功')
+    showCreateTemplateDialog.value = false
+    newTemplate.value = {
+      template_name: '',
+      document_type: '',
+      description: ''
+    }
+    loadTemplates()
+  } catch (error) {
+    ElMessage.error('创建模板失败: ' + (error.message || '未知错误'))
+  }
+}
+
+// 删除模板
+const deleteTemplateById = async (templateId) => {
+  try {
+    await ElMessageBox.confirm(
+      '确认删除此模板吗？',
+      '删除确认',
+      {
+        confirmButtonText: '确定',
+        cancelButtonText: '取消',
+        type: 'warning'
+      }
+    )
+
+    await deleteTemplate(templateId)
+    ElMessage.success('模板删除成功')
+    loadTemplates()
+  } catch (error) {
+    if (error !== 'cancel') {
+      ElMessage.error('删除失败: ' + (error.message || '未知错误'))
+    }
+  }
+}
+
+// 应用模板
+const applyTemplateToFile = async (templateId) => {
+  if (!selectedFileId.value) {
+    ElMessage.warning('请先选择文件')
+    return
+  }
+
+  try {
+    const response = await applyTemplate(templateId, selectedFileId.value)
+    ElMessage.info(response.message)
+    await loadAnnotations()
+    activeTab.value = 'annotations'
+  } catch (error) {
+    ElMessage.error('应用模板失败: ' + (error.message || '未知错误'))
+  }
+}
+
+// 跳转到转换页面
+const goToConvert = () => {
+  router.push('/')
+}
 </script>
 
 <style scoped>
 .annotator-page {
-  max-width: 1400px;
-  margin: 0 auto;
+  padding: 20px;
+  height: calc(100vh - 120px);
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
 }
 
-.card-header {
+.toolbar-card {
+  flex-shrink: 0;
+}
+
+.toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 20px;
+}
+
+.toolbar-left {
   display: flex;
   align-items: center;
   gap: 8px;
+}
+
+.toolbar-title {
   font-size: 18px;
   font-weight: bold;
 }
 
-.annotator-content {
-  min-height: 600px;
+.toolbar-center {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+}
+
+.toolbar-right {
+  display: flex;
+  gap: 10px;
+}
+
+.main-content {
+  flex: 1;
+  display: flex;
+  gap: 15px;
+  min-height: 0;
+}
+
+.pdf-container {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.pdf-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.pdf-controls {
+  display: flex;
+  gap: 10px;
+}
+
+.pdf-viewer-wrapper {
+  flex: 1;
+  overflow: auto;
+  position: relative;
+  background: #f5f5f5;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  max-height: calc(100vh - 220px);
+  padding: 8px 0;
+}
+
+.pdf-viewer {
+  position: relative;
+  display: inline-block;
+  transform-origin: top center;
+  padding-bottom: 84px; /* 为画布预留额外高度 */
+}
+
+.annotation-canvas {
+  position: absolute;
+  top: 0;
+  left: 0;
+  cursor: crosshair;
+  pointer-events: auto;
+}
+
+.tools-container {
+  width: 350px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.tools-panel {
+  padding: 10px 0;
+}
+
+.tool-tips {
+  margin-top: 20px;
+}
+
+.annotations-list {
+  max-height: 500px;
+  overflow-y: auto;
+}
+
+.annotations-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.annotations-clear {
+  padding: 0 6px;
+}
+
+.annotation-item {
+  padding: 10px;
+  border: 1px solid #e0e0e0;
+  border-radius: 4px;
+  margin-bottom: 10px;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.annotation-item:hover {
+  background: #f5f5f5;
+}
+
+.annotation-item.active {
+  border-color: #409EFF;
+  background: #ecf5ff;
+}
+
+.annotation-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 5px;
+}
+
+.field-name {
+  flex: 1;
+  font-weight: bold;
+}
+
+.annotation-value {
+  margin: 5px 0;
+  color: #666;
+  font-size: 13px;
+}
+
+.annotation-coords {
+  font-size: 12px;
+  color: #999;
+}
+
+.templates-panel {
+  padding: 10px 0;
+}
+
+.template-item {
+  padding: 10px;
+  border: 1px solid #e0e0e0;
+  border-radius: 4px;
+  margin-bottom: 10px;
+}
+
+.template-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.template-name {
+  font-weight: bold;
+}
+
+.template-info {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+  color: #666;
+}
+
+.empty-state {
+  flex: 1;
   display: flex;
   align-items: center;
   justify-content: center;
+}
+
+.empty-annotations {
+  padding: 40px 0;
 }
 </style>

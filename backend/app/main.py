@@ -10,7 +10,7 @@ import os
 app = FastAPI(
     title=settings.APP_NAME,
     version=settings.APP_VERSION,
-    description="一个集成了文档转换、PDF编辑和智能标注的文档处理系统",
+    description="一个集成了文档转换、PDF编辑和文档标注的文档处理系统",
     debug=settings.DEBUG
 )
 
@@ -69,11 +69,12 @@ async def health_check():
 
 
 # 导入路由
-from .api import upload, convert
+from .api import upload, convert, annotate
 app.include_router(upload.router)
 app.include_router(convert.router)
+app.include_router(annotate.router)
+app.include_router(annotate.template_router)
 
 # 待实现的路由（稍后创建）
-# from .api import edit, annotate
+# from .api import edit
 # app.include_router(edit.router, prefix="/api/edit", tags=["PDF编辑"])
-# app.include_router(annotate.router, prefix="/api/annotate", tags=["智能标注"])

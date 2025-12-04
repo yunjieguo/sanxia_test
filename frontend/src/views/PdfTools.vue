@@ -102,7 +102,7 @@ const editTools = [
     path: '/edit/editor'
   },
   {
-    name: '智能标注',
+    name: '文档标注',
     description: 'AI辅助标注与信息提取',
     icon: PriceTag,
     color: '#e6a23c',
