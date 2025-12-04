@@ -510,7 +510,7 @@ async def apply_template(
             page_number=page_number,
             annotation_type=field.get("field_type", "text"),
             field_name=field.get("field_name", f"field_{idx+1}"),
-            field_value="",
+            field_value=field.get("field_value", ""),
             coordinates=json.dumps(coords)
         )
         db.add(ann)

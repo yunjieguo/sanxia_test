@@ -12,6 +12,7 @@ class CoordinatesSchema(BaseModel):
     y: float = Field(..., description="Y坐标")
     width: float = Field(..., description="宽度")
     height: float = Field(..., description="高度")
+    font_size: float | None = Field(None, description="显示字体大小")
 
     class Config:
         json_schema_extra = {
@@ -123,6 +124,7 @@ class FieldDefinition(BaseModel):
     coordinates: Optional[Dict[str, float]] = Field(
         None, description="默认坐标 {x,y,width,height}"
     )
+    field_value: Optional[str] = Field(None, description="默认字段值")
 
 
 class TemplateCreate(BaseModel):

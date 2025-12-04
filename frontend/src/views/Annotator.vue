@@ -145,6 +145,18 @@
                   />
                 </el-form-item>
 
+                <el-form-item label="文字大小">
+                  <el-slider
+                    v-model="currentTool.fontSize"
+                    :min="8"
+                    :max="32"
+                    :step="1"
+                    style="width: 200px"
+                    show-input
+                    :show-input-controls="false"
+                  />
+                </el-form-item>
+
                 <el-form-item>
                   <el-button type="primary" :disabled="!canAnnotate" @click="enableDrawMode">
                     <el-icon><Edit /></el-icon>
@@ -152,6 +164,13 @@
                   </el-button>
                   <el-button @click="cancelDrawMode" v-if="isDrawing">
                     取消
+                  </el-button>
+                  <el-button
+                    type="success"
+                    :disabled="!selectedAnnotation"
+                    @click="updateSelectedAnnotation"
+                  >
+                    更新选中
                   </el-button>
                 </el-form-item>
               </el-form>
@@ -203,7 +222,10 @@
                     <el-tag :type="getAnnotationTypeColor(annotation.annotation_type)" size="small">
                       {{ getAnnotationTypeName(annotation.annotation_type) }}
                     </el-tag>
-                    <span class="field-name">{{ annotation.field_name }}</span>
+                    <span class="field-name">{{ getFieldNameCN(annotation.field_name) }}</span>
+                    <el-tag size="small" type="info" style="margin-left: 6px;">
+                      {{ (annotation.coordinates?.font_size || 12) }}px
+                    </el-tag>
                     <el-button
                       type="danger"
                       size="small"
@@ -244,6 +266,9 @@
                   <div class="template-header">
                     <span class="template-name">{{ template.template_name }}</span>
                     <div>
+                      <el-button size="small" @click="viewTemplate(template)" style="margin-right: 6px">
+                        查看
+                      </el-button>
                       <el-button size="small" @click="applyTemplateToFile(template.id)">
                         应用
                       </el-button>
@@ -290,6 +315,64 @@
       <template #footer>
         <el-button @click="showCreateTemplateDialog = false">取消</el-button>
         <el-button type="primary" @click="createNewTemplate">创建</el-button>
+      </template>
+    </el-dialog>
+
+    <!-- 模板预览对话框 -->
+    <el-dialog
+      v-model="showTemplatePreviewDialog"
+      title="模板标注点"
+      width="1070px"
+      top="8vh"
+    >
+      <div v-if="previewTemplate" class="template-preview-body">
+        <p style="margin-bottom: 10px;">
+          <strong>模板名称：</strong>{{ previewTemplate.template_name }}
+          <span v-if="previewTemplate.document_type">（{{ previewTemplate.document_type }}）</span>
+        </p>
+        <el-table
+          :data="(previewTemplate.template_data && previewTemplate.template_data.fields) || []"
+          size="small"
+          border
+        >
+          <el-table-column label="字段名称" min-width="140">
+            <template #default="{ row }">
+              {{ getFieldNameCN(row.field_name) }}
+            </template>
+          </el-table-column>
+          <el-table-column label="类型" width="100">
+            <template #default="{ row }">
+              {{ getFieldTypeName(row.field_type) }}
+            </template>
+          </el-table-column>
+          <el-table-column label="字段值" min-width="220">
+            <template #default="{ row }">
+              {{ row.field_value || '—' }}
+            </template>
+          </el-table-column>
+          <el-table-column label="字体大小" width="90">
+            <template #default="{ row }">
+              {{ (row.coordinates?.font_size || row.coordinates?.fontSize || 12) }}px
+            </template>
+          </el-table-column>
+          <el-table-column prop="page_number" label="页码" width="80">
+            <template #default="{ row }">
+              {{ row.page_number || 1 }}
+            </template>
+          </el-table-column>
+          <el-table-column label="坐标" min-width="340">
+            <template #default="{ row }">
+              <span v-if="row.coordinates">
+                宽约 {{ (row.coordinates.width || 0).toFixed(2) }}、高约 {{ (row.coordinates.height || 0).toFixed(2) }}，
+                左上角位于 (X:{{ (row.coordinates.x || 0).toFixed(2) }} Y:{{ (row.coordinates.y || 0).toFixed(2) }})
+              </span>
+              <span v-else>未设置</span>
+            </template>
+          </el-table-column>
+        </el-table>
+      </div>
+      <template #footer>
+        <el-button @click="showTemplatePreviewDialog = false">关闭</el-button>
       </template>
     </el-dialog>
   </div>
@@ -347,13 +430,16 @@ const selectedAnnotation = ref(null)
 const currentTool = ref({
   type: 'text',
   fieldName: '',
-  fieldValue: ''
+  fieldValue: '',
+  fontSize: 12
 })
 
 // UI 状态
 const activeTab = ref('tools')
 const showTemplateDialog = ref(false)
 const showCreateTemplateDialog = ref(false)
+const showTemplatePreviewDialog = ref(false)
+const previewTemplate = ref(null)
 
 // 模板
 const templates = ref([])
@@ -580,7 +666,7 @@ const stopDrawing = () => {
     annotation_type: currentTool.value.type,
     field_name: currentTool.value.fieldName,
     field_value: currentTool.value.fieldValue || '',
-    coordinates: currentRect.value
+    coordinates: { ...currentRect.value, font_size: currentTool.value.fontSize }
   }
 
   annotations.value.push(annotation)
@@ -621,14 +707,34 @@ const redrawAnnotations = () => {
   // 绘制当前页面的标注
   pageAnnotations.value.forEach(annotation => {
     const coords = annotation.coordinates
-    ctx.strokeStyle = getAnnotationColor(annotation.annotation_type)
-    ctx.lineWidth = 2
+    const fontSize = coords.font_size || coords.fontSize || 12
+    const isActive = selectedAnnotation.value === annotation
+    ctx.strokeStyle = isActive ? '#f56c6c' : getAnnotationColor(annotation.annotation_type)
+    ctx.lineWidth = isActive ? 3 : 2
     ctx.strokeRect(coords.x, coords.y, coords.width, coords.height)
 
-    // 绘制字段名
+    if (isActive) {
+      ctx.fillStyle = 'rgba(245, 108, 108, 0.12)'
+      ctx.fillRect(coords.x, coords.y, coords.width, coords.height)
+    }
+
+    // 绘制字段名与字段值
+    const label = getFieldNameCN(annotation.field_name)
+    const value = annotation.field_value || ''
+    const padding = 4
+    const textX = coords.x + padding
+    const textY = coords.y + padding + fontSize
+    const valueY = textY + fontSize + 2
+
     ctx.fillStyle = getAnnotationColor(annotation.annotation_type)
-    ctx.font = '12px Arial'
-    ctx.fillText(annotation.field_name, coords.x, coords.y - 5)
+    ctx.font = `${fontSize}px Arial`
+    ctx.fillText(label, textX, textY)
+
+    if (value) {
+      ctx.fillStyle = '#333'
+      ctx.font = `${fontSize}px Arial`
+      ctx.fillText(value, textX, valueY)
+    }
   })
 }
 
@@ -654,6 +760,30 @@ const getAnnotationTypeName = (type) => {
   return names[type] || type
 }
 
+// 模板字段类型中文
+const getFieldTypeName = (type) => {
+  const names = {
+    text: '短文本',
+    long_text: '长文本',
+    image: '图片',
+    table: '表格'
+  }
+  return names[type] || type || '-'
+}
+
+// 模板字段名称中文
+const getFieldNameCN = (fieldName) => {
+  const map = {
+    contract_name: '合同名称',
+    contract_date: '合同日期',
+    contract_number: '合同编号',
+    contract_amount: '合同金额',
+    party_a: '甲方名称',
+    party_b: '乙方名称'
+  }
+  return map[fieldName] || fieldName || '-'
+}
+
 // 获取标注类型颜色
 const getAnnotationTypeColor = (type) => {
   const colors = {
@@ -668,6 +798,11 @@ const getAnnotationTypeColor = (type) => {
 // 选择标注
 const selectAnnotation = (annotation) => {
   selectedAnnotation.value = annotation
+  currentTool.value.fieldName = annotation.field_name
+  currentTool.value.fieldValue = annotation.field_value || ''
+  currentTool.value.type = annotation.annotation_type
+  currentTool.value.fontSize = annotation.coordinates?.font_size || annotation.coordinates?.fontSize || 12
+  redrawAnnotations()
 }
 
 // 删除标注
@@ -701,6 +836,26 @@ const deleteAnnotation = async (annotation) => {
       ElMessage.error('删除失败: ' + (error.message || '未知错误'))
     }
   }
+}
+
+// 更新选中的标注（字段名、字段值、字体大小）
+const updateSelectedAnnotation = () => {
+  if (!selectedAnnotation.value) {
+    ElMessage.warning('请先选择一个标注')
+    return
+  }
+
+  selectedAnnotation.value.field_name = currentTool.value.fieldName
+  selectedAnnotation.value.field_value = currentTool.value.fieldValue
+  selectedAnnotation.value.annotation_type = currentTool.value.type
+
+  if (!selectedAnnotation.value.coordinates) {
+    selectedAnnotation.value.coordinates = {}
+  }
+  selectedAnnotation.value.coordinates.font_size = currentTool.value.fontSize
+
+  redrawAnnotations()
+  ElMessage.success('标注已更新（请记得保存）')
 }
 
 // 清空标注：支持清空本页或全部
@@ -840,22 +995,15 @@ function resolveConversionId(fileId) {
 const createNewTemplate = async () => {
   try {
     // 从当前标注生成字段定义
-    const fields = []
-    const fieldNames = new Set()
-
-    annotations.value.forEach(ann => {
-      if (!fieldNames.has(ann.field_name)) {
-        fieldNames.add(ann.field_name)
-        fields.push({
-          field_name: ann.field_name,
-          field_type: ann.annotation_type,
-          required: false,
-          description: '',
-          page_number: ann.page_number || 1,
-          coordinates: ann.coordinates || null
-        })
-      }
-    })
+    const fields = annotations.value.map((ann, idx) => ({
+      field_name: ann.field_name || `field_${idx + 1}`,
+      field_type: ann.annotation_type,
+      required: false,
+      description: '',
+      field_value: ann.field_value || '',
+      page_number: ann.page_number || 1,
+      coordinates: ann.coordinates || null
+    }))
 
     if (fields.length === 0) {
       ElMessage.warning('请先添加一些标注作为模板字段')
@@ -918,6 +1066,12 @@ const applyTemplateToFile = async (templateId) => {
   } catch (error) {
     ElMessage.error('应用模板失败: ' + (error.message || '未知错误'))
   }
+}
+
+// 查看模板详情
+const viewTemplate = (template) => {
+  previewTemplate.value = template
+  showTemplatePreviewDialog.value = true
 }
 
 // 跳转到转换页面
@@ -1101,6 +1255,11 @@ const goToConvert = () => {
   border: 1px solid #e0e0e0;
   border-radius: 4px;
   margin-bottom: 10px;
+}
+
+.template-preview-body {
+  max-height: 70vh;
+  overflow-y: auto;
 }
 
 .template-header {
