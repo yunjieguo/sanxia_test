@@ -62,29 +62,29 @@ const backendStatus = ref(false)
 
 const convertTools = [
   {
-    name: 'Word转PDF',
-    description: '将Word文档转换为PDF格式',
+    name: 'Word 转 PDF',
+    description: '将 Word 文档转换为 PDF 格式',
     icon: DocumentCopy,
     color: '#409eff',
     path: '/convert/word'
   },
   {
-    name: '图片转PDF',
-    description: '将图片文件转换为PDF格式',
+    name: '图片 转 PDF',
+    description: '将图片文件转换为 PDF 格式',
     icon: Picture,
     color: '#67c23a',
     path: '/convert/image'
   },
   {
-    name: '压缩包转PDF',
+    name: '压缩包 转 PDF',
     description: '批量转换压缩包中的文件',
     icon: FolderOpened,
     color: '#e6a23c',
     path: '/convert/archive'
   },
   {
-    name: 'OFD转PDF',
-    description: '将OFD文档转换为PDF格式',
+    name: 'OFD 转 PDF',
+    description: '将 OFD 文档转换为 PDF 格式',
     icon: Document,
     color: '#f56c6c',
     path: '/convert/ofd'
@@ -93,15 +93,15 @@ const convertTools = [
 
 const editTools = [
   {
-    name: 'PDF编辑',
-    description: '编辑PDF文档内容',
+    name: 'PDF 编辑',
+    description: '编辑 PDF 文档内容',
     icon: EditPen,
     color: '#409eff',
     path: '/edit/editor'
   },
   {
     name: '智能标注',
-    description: 'AI辅助标注与信息提取',
+    description: 'AI 辅助标注与信息提取',
     icon: PriceTag,
     color: '#e6a23c',
     path: '/edit/annotator'

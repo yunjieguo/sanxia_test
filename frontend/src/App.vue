@@ -9,6 +9,7 @@
               <el-icon :size="24"><Document /></el-icon>
               <span class="title">PDF文档处理系统</span>
             </div>
+            <el-button type="primary" plain size="small" @click="goHome">首页</el-button>
           </div>
         </el-header>
 
@@ -22,22 +23,27 @@
 </template>
 
 <script setup>
-import { ref, computed, watch } from 'vue'
-import { useRoute } from 'vue-router'
+import { computed } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import zhCn from 'element-plus/dist/locale/zh-cn.mjs'
 import { Document } from '@element-plus/icons-vue'
 
 const locale = zhCn
 const route = useRoute()
+const router = useRouter()
 
 const activeMenu = computed(() => {
   const path = route.path
-  // 如果在 PDF 工具相关页面，高亮 PDF 工具菜单
+  // 若在 PDF 工具相关页面，高亮 PDF 工具菜单
   if (path.startsWith('/pdf-tools') || path.startsWith('/convert') || path.startsWith('/edit')) {
     return '/pdf-tools'
   }
   return path
 })
+
+const goHome = () => {
+  router.push('/')
+}
 </script>
 
 <style>
@@ -72,10 +78,6 @@ const activeMenu = computed(() => {
   gap: 10px;
   font-size: 20px;
   font-weight: bold;
-}
-
-.el-menu-demo {
-  border-bottom: none;
 }
 
 .el-main {

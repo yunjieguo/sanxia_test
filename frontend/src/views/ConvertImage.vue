@@ -3,15 +3,15 @@
     <el-card>
       <template #header>
         <div class="card-header">
-          <el-icon><DocumentCopy /></el-icon>
-          <span>Word 转 PDF</span>
+          <el-icon><Picture /></el-icon>
+          <span>图片转 PDF</span>
         </div>
       </template>
 
       <el-alert
         title="功能说明"
         type="info"
-        description="上传 Word 文档后，可选择已上传记录进行 PDF 转换。仅支持 DOC、DOCX。"
+        description="上传图片后，可选择已上传记录进行 PDF 转换。支持 PNG、JPG、JPEG、GIF、BMP。"
         :closable="false"
         style="margin-bottom: 20px"
       />
@@ -34,7 +34,7 @@
         </div>
         <template #tip>
           <div class="el-upload__tip">
-            仅支持 DOC、DOCX，单个文件不超过 50MB
+            支持 PNG、JPG、JPEG、GIF、BMP，单个文件不超过 50MB
           </div>
         </template>
       </el-upload>
@@ -63,10 +63,10 @@
 
         <el-table
           v-loading="loading"
-          :data="wordFiles"
+          :data="imageFiles"
           style="width: 100%"
           @selection-change="handleSelectionChange"
-          empty-text="暂无可用 Word 文件"
+          empty-text="暂无可用图片文件"
         >
           <el-table-column type="selection" width="55" />
           <el-table-column prop="original_name" label="文件名" min-width="200" />
@@ -168,11 +168,11 @@
 import { ref, onMounted, computed } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import {
-  DocumentCopy,
-  DocumentAdd,
+  Picture,
+  UploadFilled,
   Refresh,
-  Download,
-  UploadFilled
+  DocumentAdd,
+  Download
 } from '@element-plus/icons-vue'
 import { getFileList, uploadFile, getDownloadUrl, deleteFile } from '../api/upload'
 import {
@@ -181,8 +181,8 @@ import {
   getConversionDownloadUrl
 } from '../api/convert'
 
-const STORAGE_KEY = 'conversion_map_word'
-const acceptTypes = '.doc,.docx'
+const STORAGE_KEY = 'conversion_map_image'
+const acceptTypes = '.png,.jpg,.jpeg,.gif,.bmp'
 const fileList = ref([])
 const selectedFiles = ref([])
 const loading = ref(false)
@@ -190,9 +190,9 @@ const convertingTasks = ref([])
 const uploadingFiles = ref([])
 const conversionMap = ref(loadConversionMap())
 
-const wordFiles = computed(() =>
+const imageFiles = computed(() =>
   fileList.value.filter(file =>
-    ['doc', 'docx'].includes(file.file_type.toLowerCase())
+    ['png', 'jpg', 'jpeg', 'gif', 'bmp'].includes(file.file_type.toLowerCase())
   )
 )
 

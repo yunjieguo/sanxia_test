@@ -20,7 +20,7 @@ const routes = [
   {
     path: '/convert/image',
     name: 'ConvertImage',
-    component: () => import('../views/Upload.vue')
+    component: () => import('../views/ConvertImage.vue')
   },
   {
     path: '/convert/archive',
