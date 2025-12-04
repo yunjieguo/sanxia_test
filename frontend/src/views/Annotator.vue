@@ -39,10 +39,6 @@
             <el-icon><FolderOpened /></el-icon>
             加载标注
           </el-button>
-          <el-button :disabled="!selectedFileId" @click="showTemplateDialog = true">
-            <el-icon><Document /></el-icon>
-            模板管理
-          </el-button>
         </div>
       </div>
     </el-card>
@@ -379,7 +375,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, watch, nextTick } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import {
@@ -389,6 +385,7 @@ import {
 import VuePdfEmbed from 'vue-pdf-embed'
 import { getFileList, getDownloadUrl } from '../api/upload'
 import {
+  createAnnotation,
   createAnnotationsBatch,
   getFileAnnotations,
   deleteAnnotation as deleteAnnotationApi,
@@ -396,7 +393,8 @@ import {
   getTemplates,
   createTemplate,
   deleteTemplate,
-  applyTemplate
+  applyTemplate,
+  updateAnnotation
 } from '../api/annotate'
 import { getConversionDownloadUrl } from '../api/convert'
 
@@ -491,6 +489,11 @@ watch(currentPage, () => {
   redrawAnnotations()
 })
 
+// 监听缩放变化，保持画布同步
+watch(scale, () => {
+  nextTick(setupCanvas)
+})
+
 // 加载文件列表
 const loadFileList = async () => {
   try {
@@ -555,10 +558,12 @@ const setupCanvas = () => {
 
   if (canvas && pdfElement) {
     const extraHeight = 90
-    canvas.width = pdfElement.width
-    canvas.height = pdfElement.height + extraHeight
-    canvas.style.width = `${pdfElement.offsetWidth}px`
-    canvas.style.height = `${pdfElement.offsetHeight + extraHeight}px`
+    const displayWidth = pdfElement.offsetWidth
+    const displayHeight = pdfElement.offsetHeight
+    canvas.width = displayWidth
+    canvas.height = displayHeight + extraHeight
+    canvas.style.width = `${displayWidth}px`
+    canvas.style.height = `${displayHeight + extraHeight}px`
     canvasContext.value = canvas.getContext('2d')
     redrawAnnotations()
   }
@@ -587,6 +592,9 @@ const zoomOut = () => {
   scale.value = Math.max(scale.value - 0.1, 0.3)
   nextTick(setupCanvas)
 }
+
+// 监听窗口尺寸变化
+window.addEventListener('resize', () => nextTick(setupCanvas))
 // 根据容器宽度自适应 PDF 宽度
 const updateScaleToFit = () => {
   nextTick(() => {
@@ -604,6 +612,25 @@ const updateScaleToFit = () => {
     }
   })
 }
+
+// 窗口或滚动时同步画布
+const onWrapperScroll = () => {
+  setupCanvas()
+}
+
+onMounted(() => {
+  if (pdfViewerWrapper.value) {
+    pdfViewerWrapper.value.addEventListener('scroll', onWrapperScroll)
+  }
+  window.addEventListener('resize', () => nextTick(setupCanvas))
+})
+
+// 清理监听
+onUnmounted(() => {
+  if (pdfViewerWrapper.value) {
+    pdfViewerWrapper.value.removeEventListener('scroll', onWrapperScroll)
+  }
+})
 
 // 启用绘制模式
 const enableDrawMode = () => {
@@ -723,8 +750,8 @@ const redrawAnnotations = () => {
     const value = annotation.field_value || ''
     const padding = 4
     const textX = coords.x + padding
-    const textY = coords.y + padding + fontSize
-    const valueY = textY + fontSize + 2
+    const textY = coords.y - 4 // 字段名放在选框上方
+    const valueY = coords.y + padding + fontSize
 
     ctx.fillStyle = getAnnotationColor(annotation.annotation_type)
     ctx.font = `${fontSize}px Arial`
@@ -839,23 +866,52 @@ const deleteAnnotation = async (annotation) => {
 }
 
 // 更新选中的标注（字段名、字段值、字体大小）
-const updateSelectedAnnotation = () => {
+const updateSelectedAnnotation = async () => {
   if (!selectedAnnotation.value) {
     ElMessage.warning('请先选择一个标注')
     return
   }
 
-  selectedAnnotation.value.field_name = currentTool.value.fieldName
-  selectedAnnotation.value.field_value = currentTool.value.fieldValue
-  selectedAnnotation.value.annotation_type = currentTool.value.type
+  try {
+    const payload = {
+      file_id: selectedFileId.value,
+      page_number: selectedAnnotation.value.page_number || currentPage.value,
+      annotation_type: currentTool.value.type,
+      field_name: currentTool.value.fieldName,
+      field_value: currentTool.value.fieldValue,
+      coordinates: {
+        ...(selectedAnnotation.value.coordinates || currentRect.value || {}),
+        font_size: currentTool.value.fontSize
+      }
+    }
 
-  if (!selectedAnnotation.value.coordinates) {
-    selectedAnnotation.value.coordinates = {}
+    // 已保存的标注走更新，未保存的直接创建
+    let resp
+    if (selectedAnnotation.value.id) {
+      resp = await updateAnnotation(selectedAnnotation.value.id, payload)
+    } else {
+      resp = await createAnnotation(payload)
+    }
+
+    const updated = {
+      ...selectedAnnotation.value,
+      ...resp,
+      coordinates: resp.coordinates || payload.coordinates
+    }
+    selectedAnnotation.value = updated
+
+    const idx = annotations.value.findIndex(a => a.id === updated.id || a === selectedAnnotation.value || a.field_name === updated.field_name && a.page_number === updated.page_number)
+    if (idx > -1) {
+      annotations.value[idx] = updated
+    } else {
+      annotations.value.push(updated)
+    }
+
+    redrawAnnotations()
+    ElMessage.success('标注已更新并保存')
+  } catch (error) {
+    ElMessage.error('更新失败: ' + (error.message || '未知错误'))
   }
-  selectedAnnotation.value.coordinates.font_size = currentTool.value.fontSize
-
-  redrawAnnotations()
-  ElMessage.success('标注已更新（请记得保存）')
 }
 
 // 清空标注：支持清空本页或全部
