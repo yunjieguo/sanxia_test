@@ -10,8 +10,8 @@
 
       <el-alert
         title="功能说明"
-        type="warning"
-        description="当前支持上传并查看压缩包历史，批量解压与转 PDF 功能待后端实现。"
+        type="info"
+        description="上传压缩包（ZIP/RAR），系统会自动将包内的 Word、图片、OFD 文件转换为 PDF 并重新打包。"
         :closable="false"
         style="margin-bottom: 20px"
       />
@@ -54,7 +54,7 @@
       <!-- 列表 -->
       <div class="file-list-section">
         <div class="section-header">
-          <h3>压缩包历史</h3>
+          <h3>压缩包文件列表</h3>
           <el-button type="primary" size="small" @click="loadFileList">
             <el-icon><Refresh /></el-icon>
             刷新列表
@@ -83,7 +83,7 @@
               {{ formatDateTime(row.created_at) }}
             </template>
           </el-table-column>
-          <el-table-column label="操作" width="280" fixed="right">
+          <el-table-column label="操作" width="320" fixed="right">
             <template #default="{ row }">
               <el-button link type="primary" size="small" @click="downloadFile(row)">
                 <el-icon><Download /></el-icon>
@@ -93,15 +93,46 @@
                 <el-icon><Delete /></el-icon>
                 删除原文件
               </el-button><br />
-              <el-tooltip content="后端转换待实现" placement="top">
-                <el-button link type="info" size="small" disabled>
-                  <el-icon><DocumentAdd /></el-icon>
-                  下载PDF
-                </el-button>
-              </el-tooltip>
+              <el-button
+                v-if="row.status !== 'converted' && row.status !== 'converting'"
+                link
+                type="primary"
+                size="small"
+                @click="convertSingle(row)"
+              >
+                <el-icon><DocumentAdd /></el-icon>
+                转换为PDF包
+              </el-button>
+              <el-button
+                v-if="row.conversion_id"
+                link
+                type="success"
+                size="small"
+                @click="downloadConverted(row.conversion_id)"
+              >
+                <el-icon><Download /></el-icon>
+                下载PDF包
+              </el-button>
             </template>
           </el-table-column>
         </el-table>
+      </div>
+
+      <el-divider />
+
+      <!-- 转换进度 -->
+      <div v-if="convertingTasks.length > 0" class="converting-section">
+        <h3>转换进度</h3>
+        <div v-for="task in convertingTasks" :key="task.file_id" class="convert-task">
+          <div class="task-info">
+            <span>{{ task.fileName }}</span>
+            <span class="task-status">{{ task.statusText }}</span>
+          </div>
+          <el-progress
+            :percentage="task.progress"
+            :status="task.status === 'failed' ? 'exception' : task.status === 'completed' ? 'success' : ''"
+          />
+        </div>
       </div>
     </el-card>
   </div>
@@ -112,11 +143,19 @@ import { ref, onMounted, computed } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { FolderOpened, UploadFilled, Refresh, Download, DocumentAdd, Delete } from '@element-plus/icons-vue'
 import { uploadFile, getFileList, getDownloadUrl, deleteFile } from '../api/upload'
+import {
+  convertToPDF,
+  getConversionStatus,
+  getConversionDownloadUrl
+} from '../api/convert'
 
+const STORAGE_KEY = 'conversion_map_archive'
 const acceptTypes = '.zip,.rar'
 const fileList = ref([])
 const loading = ref(false)
 const uploadingFiles = ref([])
+const convertingTasks = ref([])
+const conversionMap = ref(loadConversionMap())
 
 const archiveFiles = computed(() =>
   fileList.value.filter(file =>
@@ -132,7 +171,11 @@ const loadFileList = async () => {
   loading.value = true
   try {
     const response = await getFileList()
-    fileList.value = response.files || []
+    const files = response.files || []
+    fileList.value = files.map(f => ({
+      ...f,
+      conversion_id: conversionMap.value[f.id] || f.conversion_id
+    }))
   } catch (error) {
     ElMessage.error('获取文件列表失败: ' + (error.message || '未知错误'))
   } finally {
@@ -193,6 +236,108 @@ const handleUpload = async (options) => {
   }
 }
 
+const convertSingle = async (file) => {
+  try {
+    const task = {
+      file_id: file.id,
+      fileName: file.original_name,
+      progress: 0,
+      status: 'processing',
+      statusText: '解压并转换中...',
+      conversion_id: null
+    }
+    convertingTasks.value.push(task)
+
+    ElMessage.info('正在解压并转换压缩包内的文件，可能需要较长时间，请耐心等待...')
+
+    const result = await convertToPDF(file.id)
+    task.conversion_id = result.conversion_id
+
+    await pollConversionStatus(task)
+
+  } catch (error) {
+    ElMessage.error(`转换失败: ${error.message || '未知错误'}`)
+    const taskIndex = convertingTasks.value.findIndex(t => t.file_id === file.id)
+    if (taskIndex > -1) {
+      convertingTasks.value[taskIndex].status = 'failed'
+      convertingTasks.value[taskIndex].statusText = '转换失败'
+      convertingTasks.value[taskIndex].progress = 0
+    }
+  }
+}
+
+const pollConversionStatus = async (task) => {
+  const maxAttempts = 60  // 增加到60次，因为压缩包转换可能需要更长时间
+  let attempts = 0
+
+  const poll = async () => {
+    try {
+      const status = await getConversionStatus(task.conversion_id)
+
+      task.progress = status.progress || 50  // 压缩包转换显示50%进度
+      task.statusText = getConversionStatusText(status.status)
+
+      if (status.status === 'completed') {
+        task.status = 'completed'
+        task.progress = 100
+
+        // 显示转换成功的消息，包括转换的文件数
+        const message = status.error_message || `${task.fileName} 转换完成`
+        ElMessage.success(message)
+
+        const fileIndex = fileList.value.findIndex(f => f.id === task.file_id)
+        if (fileIndex > -1) {
+          fileList.value[fileIndex].status = 'converted'
+          fileList.value[fileIndex].conversion_id = task.conversion_id
+        }
+        saveConversionId(task.file_id, task.conversion_id)
+
+        setTimeout(() => {
+          const index = convertingTasks.value.findIndex(t => t.file_id === task.file_id)
+          if (index > -1) {
+            convertingTasks.value.splice(index, 1)
+          }
+        }, 2000)
+
+        return
+      }
+
+      if (status.status === 'failed') {
+        task.status = 'failed'
+        task.statusText = status.error_message || '转换失败'
+        ElMessage.error(`${task.fileName} 转换失败: ${status.error_message || '未知错误'}`)
+        return
+      }
+
+      attempts++
+      if (attempts < maxAttempts) {
+        setTimeout(poll, 2000)  // 每2秒查询一次
+      } else {
+        task.status = 'failed'
+        task.statusText = '转换超时'
+        ElMessage.error(`${task.fileName} 转换超时`)
+      }
+
+    } catch (error) {
+      task.status = 'failed'
+      task.statusText = '查询状态失败'
+      console.error('查询转换状态失败', error)
+    }
+  }
+
+  await poll()
+}
+
+const downloadConverted = (conversionId) => {
+  const url = getConversionDownloadUrl(conversionId)
+  const link = document.createElement('a')
+  link.href = url
+  document.body.appendChild(link)
+  link.click()
+  document.body.removeChild(link)
+  ElMessage.success('开始下载 PDF包')
+}
+
 const downloadFile = (row) => {
   const url = getDownloadUrl(row.id)
   const link = document.createElement('a')
@@ -217,6 +362,10 @@ const deleteOriginal = async (row) => {
 
     await deleteFile(row.id)
     fileList.value = fileList.value.filter(f => f.id !== row.id)
+    const map = { ...conversionMap.value }
+    delete map[row.id]
+    conversionMap.value = map
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(conversionMap.value))
     ElMessage.success('已删除原文件')
   } catch (error) {
     if (error !== 'cancel') {
@@ -242,6 +391,31 @@ const formatDateTime = (value) => {
   const mm = String(date.getMinutes()).padStart(2, '0')
   const ss = String(date.getSeconds()).padStart(2, '0')
   return `${y}-${m}-${d} ${hh}:${mm}:${ss}`
+}
+
+const getConversionStatusText = (status) => {
+  const statusMap = {
+    pending: '等待中...',
+    processing: '转换中...',
+    completed: '转换完成',
+    failed: '转换失败'
+  }
+  return statusMap[status] || status
+}
+
+function loadConversionMap() {
+  try {
+    const stored = localStorage.getItem(STORAGE_KEY)
+    return stored ? JSON.parse(stored) : {}
+  } catch (e) {
+    console.error('加载本地 conversion_map 失败', e)
+    return {}
+  }
+}
+
+function saveConversionId(fileId, conversionId) {
+  conversionMap.value = { ...conversionMap.value, [fileId]: conversionId }
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(conversionMap.value))
 }
 </script>
 
@@ -290,6 +464,24 @@ const formatDateTime = (value) => {
 }
 
 .upload-percent {
+  color: #409eff;
+}
+
+.converting-section {
+  margin-top: 20px;
+}
+
+.convert-task {
+  margin-bottom: 12px;
+}
+
+.task-info {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 4px;
+}
+
+.task-status {
   color: #409eff;
 }
 </style>

@@ -1,0 +1,8 @@
+INFO:     Will watch for changes in these directories: ['D:\\wwwroot\\demo\\sanxia_demo\\backend']
+INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
+INFO:     Started reloader process [10084] using WatchFiles
+INFO:     Started server process [31204]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+WARNING:  WatchFiles detected changes in 'app\api\convert.py'. Reloading...
+ 

@@ -6,7 +6,7 @@ pydantic==2.5.0
 pydantic-settings==2.1.0
 
 # PDF 处理
-PyMuPDF==1.23.8
+PyMuPDF>=1.26.0  # 支持 OFD 转 PDF
 PyPDF2==3.0.1
 pdf2image==1.16.3
 reportlab==4.0.7
@@ -18,7 +18,7 @@ img2pdf==0.5.1
 pypandoc==1.12
 
 # 压缩包处理
-rarfile==4.1
+rarfile==4.2
 
 # OCR (可选)
 # paddleocr==2.7.0

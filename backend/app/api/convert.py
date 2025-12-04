@@ -27,6 +27,8 @@ async def convert_to_pdf(
     支持的格式：
     - 图片：PNG, JPG, JPEG, GIF, BMP
     - 文档：DOC, DOCX
+    - 电子文档：OFD
+    - 压缩包：ZIP, RAR（将包内的支持格式转换为PDF后重新打包）
 
     Args:
         request: 转换请求（包含文件ID）
@@ -53,6 +55,10 @@ async def convert_to_pdf(
             conversion = converter.convert_image_to_pdf(request.file_id)
         elif file_ext in ['doc', 'docx']:
             conversion = converter.convert_word_to_pdf(request.file_id)
+        elif file_ext in ['ofd']:
+            conversion = converter.convert_ofd_to_pdf(request.file_id)
+        elif file_ext in ['zip', 'rar']:
+            conversion = converter.convert_archive_to_pdf(request.file_id)
         else:
             raise HTTPException(status_code=400, detail=f"不支持的文件格式: {file_ext}")
 
@@ -157,19 +163,28 @@ async def download_conversion_result(
     if not conversion.result_path or not os.path.exists(conversion.result_path):
         raise HTTPException(status_code=404, detail="转换结果文件不存在")
 
-    # 获取原文件名（不含扩展名）+ .pdf
+    # 获取原文件名和扩展名
     from ..models.file import File
+    from ..utils.file_utils import get_file_extension
+
     original_file = db.query(File).filter(File.id == conversion.file_id).first()
+
+    # 判断结果文件类型
+    result_ext = get_file_extension(conversion.result_filename) if conversion.result_filename else 'pdf'
+
     if original_file:
         base_name = os.path.splitext(original_file.original_name)[0]
-        download_filename = f"{base_name}.pdf"
+        download_filename = f"{base_name}.{result_ext}"
     else:
         download_filename = conversion.result_filename
+
+    # 根据文件扩展名设置正确的 MIME 类型
+    media_type = "application/zip" if result_ext == "zip" else "application/pdf"
 
     return FileResponse(
         path=conversion.result_path,
         filename=download_filename,
-        media_type="application/pdf"
+        media_type=media_type
     )
 
 

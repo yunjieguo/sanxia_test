@@ -9,13 +9,25 @@
       "Bash(then echo \"LibreOffice found at C:\\Program Files (x86)\\LibreOffice\")",
       "Bash(else echo \"LibreOffice NOT installed\")",
       "Bash(fi)",
-      "Bash(python:*)"
+      "Bash(python:*)",
+      "WebSearch",
+      "Bash(pip install:*)",
+      "Bash(curl:*)",
+      "Bash(tasklist:*)",
+      "Bash(findstr:*)",
+      "Bash(netstat:*)",
+      "Bash(taskkill:*)",
+      "Bash(powershell:*)",
+      "Bash(cmd /c \"taskkill /F /PID 8396 & taskkill /F /PID 23196 & taskkill /F /PID 34156 & taskkill /F /PID 20476\")",
+      "Bash(timeout /t 3)",
+      "Bash(ping:*)",
+      "Bash(cat:*)"
     ],
     "deny": [],
     "ask": []
   },
+  "enableAllProjectMcpServers": true,
   "enabledMcpjsonServers": [
     "browser-tools"
-  ],
-  "enableAllProjectMcpServers": true
+  ]
 }
