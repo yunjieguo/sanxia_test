@@ -39,6 +39,10 @@
             <el-icon><FolderOpened /></el-icon>
             加载标注
           </el-button>
+          <el-button :disabled="!selectedFileId || exportingPdf" @click="exportAnnotatedPdf">
+            <el-icon><Document /></el-icon>
+            导出标注 PDF
+          </el-button>
         </div>
       </div>
     </el-card>
@@ -1876,6 +1880,7 @@ const showTemplateImageDialog = ref(false)
 const templateImagePreviewUrl = ref('')
 const uploadingPdf = ref(false)
 const uploadPercent = ref(0)
+const exportingPdf = ref(false)
 
 const viewTemplate = (template) => {
   previewTemplate.value = template
@@ -1965,6 +1970,84 @@ const handlePdfUpload = async (file) => {
     uploadPercent.value = 0
   }
 }
+
+// 导出标注后的 PDF（截取当前预览区域）
+const exportAnnotatedPdf = async () => {
+  if (!pdfViewerWrapper.value) return
+  exportingPdf.value = true
+  ElMessage.info('正在导出 PDF，请稍候...')
+  try {
+    const html2canvas = await loadHtml2Canvas()
+    const jsPDF = await loadJspdf()
+    if (!html2canvas || !jsPDF) {
+      throw new Error('缺少导出依赖')
+    }
+
+    const element = pdfViewerWrapper.value
+    const pdf = new jsPDF('p', 'mm', 'a4')
+    const pageWidth = pdf.internal.pageSize.getWidth()
+
+    const originalPage = currentPage.value
+    const total = Number(totalPages.value) > 0 ? Number(totalPages.value) : 1
+    const wrapper = pdfViewerWrapper.value
+    const prevHeight = wrapper.style.height
+    const prevOverflow = wrapper.style.overflow
+    for (let p = 1; p <= total; p += 1) {
+      currentPage.value = p
+      await nextTick()
+      await sleep(150)
+      // 取消滚动限制，截取整页
+      wrapper.style.height = `${wrapper.scrollHeight}px`
+      wrapper.style.overflow = 'visible'
+      await nextTick()
+      const canvas = await html2canvas(wrapper, { scale: 2, useCORS: true })
+      const imgData = canvas.toDataURL('image/png')
+      const imgWidth = pageWidth
+      const imgHeight = (canvas.height * imgWidth) / canvas.width
+      if (p > 1) pdf.addPage()
+      pdf.addImage(imgData, 'PNG', 0, 0, imgWidth, imgHeight)
+      // 恢复滚动
+      wrapper.style.height = prevHeight
+      wrapper.style.overflow = prevOverflow
+    }
+    currentPage.value = originalPage
+    await nextTick()
+
+    pdf.save('annotated.pdf')
+    ElMessage.success('导出成功')
+  } catch (error) {
+    console.error('导出失败:', error)
+    ElMessage.error('导出失败，请确认依赖已安装：html2canvas、jspdf')
+  } finally {
+    exportingPdf.value = false
+  }
+}
+
+// 懒加载 html2canvas（CDN 回退）
+const loadHtml2Canvas = async () => {
+  if (window.html2canvas) return window.html2canvas
+  try {
+    const mod = await import(/* @vite-ignore */ 'https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js')
+    return mod.default || window.html2canvas || mod
+  } catch (e) {
+    console.error('加载 html2canvas 失败', e)
+    return null
+  }
+}
+
+// 懒加载 jsPDF（CDN 回退）
+const loadJspdf = async () => {
+  if (window.jspdf?.jsPDF) return window.jspdf.jsPDF
+  try {
+    const mod = await import(/* @vite-ignore */ 'https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js')
+    return mod.jsPDF || window.jspdf?.jsPDF || mod.default?.jsPDF
+  } catch (e) {
+    console.error('加载 jsPDF 失败', e)
+    return null
+  }
+}
+
+const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms))
 </script>
 
 <style scoped>
