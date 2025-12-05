@@ -266,7 +266,7 @@
 
           <!-- 标注列表 -->
           <el-tab-pane
-            :label="`标注列表${annotations.length ? '（' + annotations.length + '）' : ''}`"
+            :label="`标注列表${totalAnnotationCount ? '（' + totalAnnotationCount + '）' : ''}`"
             name="annotations"
           >
             <div class="annotations-header">
@@ -418,10 +418,24 @@
     <!-- 未选择文件时的提示 -->
     <el-card v-else class="empty-state">
       <el-empty description="请先选择要标注的 PDF 文件">
-        <el-button type="primary" @click="goToConvert">
-          <el-icon><Upload /></el-icon>
-          转换文件为 PDF
-        </el-button>
+        <div class="empty-actions">
+          <el-button type="primary" @click="goToConvert">
+            <el-icon><Upload /></el-icon>
+            转换文件为 PDF
+          </el-button>
+          <el-upload
+            :auto-upload="false"
+            :show-file-list="false"
+            accept=".pdf,application/pdf"
+            :on-change="handlePdfUpload"
+          >
+            <el-button>
+              <el-icon><Upload /></el-icon>
+              上传 PDF
+            </el-button>
+          </el-upload>
+        </div>
+        <div v-if="uploadingPdf" class="upload-progress">上传中 {{ uploadPercent }}%</div>
       </el-empty>
     </el-card>
 
@@ -577,7 +591,7 @@ import {
   ZoomIn, ZoomOut, Edit, Delete, Upload, Plus
 } from '@element-plus/icons-vue'
 import VuePdfEmbed from 'vue-pdf-embed'
-import { getFileList, getDownloadUrl } from '../api/upload'
+import { getFileList, getDownloadUrl, uploadFile } from '../api/upload'
 import {
   createAnnotation,
   createAnnotationsBatch,
@@ -681,6 +695,10 @@ const pageAnnotations = computed(() => {
 
 const pagePaintStrokes = computed(() => {
   return (paintHistory.value || []).filter(stroke => (stroke.page_number || 1) === currentPage.value)
+})
+
+const totalAnnotationCount = computed(() => {
+  return (annotations.value?.length || 0) + (paintHistory.value?.length || 0)
 })
 
 const getStrokeBounds = (stroke) => {
@@ -1856,6 +1874,8 @@ const applyTemplateToFile = async (templateId) => {
 // 查看模板详情
 const showTemplateImageDialog = ref(false)
 const templateImagePreviewUrl = ref('')
+const uploadingPdf = ref(false)
+const uploadPercent = ref(0)
 
 const viewTemplate = (template) => {
   previewTemplate.value = template
@@ -1916,6 +1936,35 @@ const onCanvasLeave = () => {
     setCanvasCursor('crosshair')
   }
 }
+
+// 处理 PDF 上传
+const handlePdfUpload = async (file) => {
+  const rawFile = file.raw
+  if (!rawFile) return
+  if (rawFile.type !== 'application/pdf' && !rawFile.name.toLowerCase().endsWith('.pdf')) {
+    ElMessage.error('仅支持 PDF 文件')
+    return
+  }
+  uploadingPdf.value = true
+  uploadPercent.value = 0
+  try {
+    const resp = await uploadFile(rawFile, (percent) => {
+      uploadPercent.value = percent
+    })
+    ElMessage.success('PDF 上传成功')
+    await loadFileList()
+    // 自动选中新文件
+    if (resp?.id) {
+      selectedFileId.value = resp.id
+      await loadFile()
+    }
+  } catch (error) {
+    ElMessage.error('上传失败: ' + (error.message || '未知错误'))
+  } finally {
+    uploadingPdf.value = false
+    uploadPercent.value = 0
+  }
+}
 </script>
 
 <style scoped>
@@ -1957,6 +2006,19 @@ const onCanvasLeave = () => {
 .toolbar-right {
   display: flex;
   gap: 10px;
+  align-items: center;
+}
+
+.empty-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  margin-top: 10px;
+}
+
+.upload-progress {
+  font-size: 12px;
+  color: #666;
 }
 
 .main-content {
