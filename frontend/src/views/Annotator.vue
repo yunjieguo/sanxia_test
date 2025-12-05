@@ -427,17 +427,22 @@
             <el-icon><Upload /></el-icon>
             转换文件为 PDF
           </el-button>
-          <el-upload
-            :auto-upload="false"
-            :show-file-list="false"
-            accept=".pdf,application/pdf"
-            :on-change="handlePdfUpload"
-          >
-            <el-button>
-              <el-icon><Upload /></el-icon>
-              上传 PDF
+          <div class="upload-stack">
+            <el-upload
+              :auto-upload="false"
+              :show-file-list="false"
+              accept=".pdf,application/pdf"
+              :on-change="handlePdfUpload"
+            >
+              <el-button class="upload-pdf-btn">
+                <el-icon><Upload /></el-icon>
+                上传 PDF
+              </el-button>
+            </el-upload>
+            <el-button class="history-btn" @click="openUploadHistory">
+              历史上传记录
             </el-button>
-          </el-upload>
+          </div>
         </div>
         <div v-if="uploadingPdf" class="upload-progress">上传中 {{ uploadPercent }}%</div>
       </el-empty>
@@ -583,6 +588,37 @@
         <img :src="templateImagePreviewUrl" alt="模板图片预览" />
       </div>
     </el-dialog>
+
+    <!-- 历史上传列表 -->
+    <el-dialog
+      v-model="showUploadHistoryDialog"
+      title="历史上传 PDF"
+      width="800px"
+      top="8vh"
+      @open="loadUploadHistory"
+    >
+      <el-table :data="uploadHistory" size="small" v-loading="historyLoading" style="width: 100%">
+        <el-table-column prop="original_name" label="文件名" min-width="220" />
+        <el-table-column prop="file_size" label="大小" width="120">
+          <template #default="{ row }">
+            {{ formatFileSize(row.file_size) }}
+          </template>
+        </el-table-column>
+        <el-table-column prop="created_at" label="上传时间" width="180">
+          <template #default="{ row }">
+            {{ formatDate(row.created_at) }}
+          </template>
+        </el-table-column>
+        <el-table-column label="操作" width="180">
+          <template #default="{ row }">
+            <el-button size="small" @click="selectHistoryFile(row)">选择</el-button>
+            <el-button size="small" type="danger" text @click="deleteHistoryFile(row)">
+              <el-icon><Delete /></el-icon>
+            </el-button>
+          </template>
+        </el-table-column>
+      </el-table>
+    </el-dialog>
   </div>
 </template>
 
@@ -595,7 +631,7 @@ import {
   ZoomIn, ZoomOut, Edit, Delete, Upload, Plus
 } from '@element-plus/icons-vue'
 import VuePdfEmbed from 'vue-pdf-embed'
-import { getFileList, getDownloadUrl, uploadFile } from '../api/upload'
+import { getFileList, getDownloadUrl, uploadFile, deleteFile } from '../api/upload'
 import {
   createAnnotation,
   createAnnotationsBatch,
@@ -1881,6 +1917,9 @@ const templateImagePreviewUrl = ref('')
 const uploadingPdf = ref(false)
 const uploadPercent = ref(0)
 const exportingPdf = ref(false)
+const showUploadHistoryDialog = ref(false)
+const uploadHistory = ref([])
+const historyLoading = ref(false)
 
 const viewTemplate = (template) => {
   previewTemplate.value = template
@@ -2048,6 +2087,68 @@ const loadJspdf = async () => {
 }
 
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms))
+
+// 历史上传
+const openUploadHistory = () => {
+  showUploadHistoryDialog.value = true
+}
+
+const loadUploadHistory = async () => {
+  historyLoading.value = true
+  try {
+    const resp = await getFileList(0, 200)
+    const files = (resp.files || []).filter(f => (f.file_type || '').toLowerCase() === 'pdf')
+    uploadHistory.value = files
+  } catch (e) {
+    ElMessage.error('加载历史上传失败')
+  } finally {
+    historyLoading.value = false
+  }
+}
+
+const deleteHistoryFile = async (file) => {
+  try {
+    await ElMessageBox.confirm(`确认删除 ${file.original_name} 吗？`, '删除确认', {
+      confirmButtonText: '确定',
+      cancelButtonText: '取消',
+      type: 'warning'
+    })
+    await deleteFile(file.id)
+    // 更新列表和下拉
+    uploadHistory.value = uploadHistory.value.filter(f => f.id !== file.id)
+    fileList.value = fileList.value.filter(f => f.id !== file.id)
+    if (selectedFileId.value === file.id) {
+      selectedFileId.value = null
+      pdfSource.value = null
+    }
+    ElMessage.success('删除成功')
+  } catch (error) {
+    if (error !== 'cancel') {
+      ElMessage.error('删除失败')
+    }
+  }
+}
+
+const selectHistoryFile = async (file) => {
+  selectedFileId.value = file.id
+  showUploadHistoryDialog.value = false
+  await loadFile()
+}
+
+const formatFileSize = (size) => {
+  if (!size && size !== 0) return '-'
+  if (size < 1024) return `${size} B`
+  if (size < 1024 * 1024) return `${(size / 1024).toFixed(1)} KB`
+  if (size < 1024 * 1024 * 1024) return `${(size / (1024 * 1024)).toFixed(1)} MB`
+  return `${(size / (1024 * 1024 * 1024)).toFixed(1)} GB`
+}
+
+const formatDate = (dateStr) => {
+  if (!dateStr) return '-'
+  const d = new Date(dateStr)
+  if (Number.isNaN(d.getTime())) return dateStr
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
+}
 </script>
 
 <style scoped>
@@ -2094,9 +2195,24 @@ const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms))
 
 .empty-actions {
   display: flex;
-  gap: 10px;
+  gap: 16px;
   justify-content: center;
   margin-top: 10px;
+}
+
+.upload-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.upload-pdf-btn {
+  background: linear-gradient(135deg, #4dabf7 0%, #228be6 100%);
+  color: #fff;
+}
+
+.history-btn {
+  align-self: flex-start;
 }
 
 .upload-progress {

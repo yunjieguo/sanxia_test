@@ -252,7 +252,9 @@ class ConverterService:
             libreoffice_paths = [
                 "libreoffice",  # Linux/Mac
                 "soffice",
-                r"C:\Program Files\LibreOffice\program\soffice.exe",  # Windows
+                r"C:\Program Files\LibreOffice\program\soffice.com",  # Windows - 使用 .com 避免控制台
+                r"C:\Program Files (x86)\LibreOffice\program\soffice.com",
+                r"C:\Program Files\LibreOffice\program\soffice.exe",
                 r"C:\Program Files (x86)\LibreOffice\program\soffice.exe",
             ]
 
@@ -275,17 +277,30 @@ class ConverterService:
 
             # 使用 LibreOffice 转换
             output_dir = os.path.dirname(output_path)
+            startupinfo = None
+            creationflags = 0
+            if os.name == "nt":
+                startupinfo = subprocess.STARTUPINFO()
+                startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+                creationflags = subprocess.CREATE_NO_WINDOW
+
             result = subprocess.run(
                 [
                     libreoffice_cmd,
                     "--headless",
+                    "--nologo",
+                    "--nodefault",
+                    "--norestore",
+                    "--invisible",
                     "--convert-to", "pdf",
                     "--outdir", output_dir,
                     input_path
                 ],
                 capture_output=True,
                 timeout=60,
-                text=True
+                text=True,
+                startupinfo=startupinfo,
+                creationflags=creationflags
             )
 
             if result.returncode != 0:
