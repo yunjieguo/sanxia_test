@@ -2,9 +2,9 @@
 
 > 本文档记录所有待开发功能和开发进度
 >
-> **项目状态：** 文档转换模块已完成，文档标注模块已完成
+> **项目状态：** 文档转换模块已完成，文档标注模块待开发
 >
-> **总体完成度：** 约 65%（基础架构 + 文件上传 + 文档转换 + 文档标注）
+> **总体完成度：** 约 35%（基础架构 + 文件上传 + 文档转换）
 >
 > **最后更新：** 2025-12-04
 
@@ -39,19 +39,11 @@
    - ✅ 转换进度显示
    - ✅ 文件下载功能
 
-#### ✅ 已完成的核心功能（续）
-
-2. **文档标注与信息抽取模块（100%）**
-   - ✅ 数据库模型（Annotation, Template）
-   - ✅ 标注 API（创建、查询、更新、删除）
-   - ✅ 模板管理 API（创建、查询、应用）
-   - ✅ PDF 导出带标注功能
-   - ✅ 中文字体支持优化
-
 #### ❌ 待开发的核心功能
 
-**核心模块待实现：**
+**两大核心模块待实现：**
 1. PDF 编辑模块（0%）
+2. 文档标注与信息抽取模块（0%）
 
 ---
 
@@ -109,7 +101,7 @@
 
 ---
 
-#### 1.2 数据库模型设计 ✅ 已完成
+#### 1.2 数据库模型设计 ✅ 部分完成
 
 **目标：** 建立完整的数据库表结构
 
@@ -128,7 +120,7 @@
   - updated_at: 更新时间
   ```
 
-- ✅ 创建 `backend/app/models/conversion.py` - 转换任务表 ✅
+- [ ] 创建 `backend/app/models/conversion.py` - 转换任务表
   ```python
   - id: 主键
   - file_id: 关联文件ID（外键）
@@ -141,7 +133,7 @@
   - completed_at: 完成时间
   ```
 
-- ✅ 创建 `backend/app/models/annotation.py` - 标注数据表 ✅
+- [ ] 创建 `backend/app/models/annotation.py` - 标注数据表
   ```python
   - id: 主键
   - file_id: 关联文件ID（外键）
@@ -154,7 +146,7 @@
   - updated_at: 更新时间
   ```
 
-- ✅ 创建模板表（整合在 annotation.py 中）- 标注模板表 ✅
+- [ ] 创建 `backend/app/models/template.py` - 标注模板表
   ```python
   - id: 主键
   - template_name: 模板名称
@@ -164,8 +156,8 @@
   - updated_at: 更新时间
   ```
 
-- ✅ 数据库自动创建和初始化 ✅
-- ✅ 数据库模型测试 ✅
+- [ ] 编写数据库初始化脚本
+- [ ] 测试数据库模型
 
 ---
 
@@ -272,106 +264,139 @@
 
 ---
 
-### 第三阶段：文档标注与信息抽取模块 ✅ 已完成
+### 第三阶段：文档标注与信息抽取模块（核心功能）
 
-#### 3.1 标注工具开发 ✅ 已完成
+#### 3.1 标注工具开发
 
 **目标：** 实现可视化标注功能
 
-**前端任务：**
-- ✅ 创建 `frontend/src/views/Annotator.vue` - 标注主页面 ✅
-  - 左侧：PDF 预览 + 标注画布 ✅
-  - 右侧：工具面板 + 标注列表 ✅
-  - 顶部：操作栏（保存、导出、清空标注）✅
-  - 底部：页面导航 ✅
-  - 矩形框选工具 ✅
-  - 标注框拖拽和缩放 ✅
-  - 标注框删除 ✅
-  - 字段名称选择器（合同名称、日期、编号、金额等）✅
-  - 字段值编辑 ✅
-  - 字体大小设置 ✅
+**前端任务（重点）：**
+- [ ] 创建 `frontend/src/components/Annotator/Canvas.vue` - 标注画布
+  - 集成 Fabric.js
+  - PDF 页面渲染
+  - 矩形框选工具
+  - 标注框样式（不同类型不同颜色）
+  - 标注框拖拽和缩放
+  - 标注框删除
 
-- ✅ 创建 `frontend/src/api/annotate.js` - 标注 API 封装 ✅
-  - `getFileAnnotations()` - 获取文件标注 ✅
-  - `createAnnotation()` - 创建标注 ✅
-  - `updateAnnotation()` - 更新标注 ✅
-  - `deleteAnnotation()` - 删除标注 ✅
-  - `exportAnnotatedPDF()` - 导出带标注的 PDF ✅
-  - `getTemplates()` - 获取模板列表 ✅
-  - `createTemplate()` - 创建模板 ✅
-  - `applyTemplate()` - 应用模板 ✅
+- [ ] 创建 `frontend/src/components/Annotator/ToolPanel.vue` - 工具面板
+  - 标注类型选择器
+    - 短文本标注
+    - 长文本标注（多段落）
+    - 图片标注
+    - 表格标注
+  - 字段名称选择器
+    - 合同名称
+    - 日期
+    - 编号
+    - 金额
+    - 自定义字段
+  - 工具操作按钮（选择、移动、删除）
+
+- [ ] 创建 `frontend/src/components/Annotator/AnnotationList.vue` - 标注列表
+  - 显示当前页面所有标注
+  - 标注项编辑
+  - 标注项删除
+  - 标注导航（点击定位）
+
+- [ ] 创建 `frontend/src/components/Annotator/FieldEditor.vue` - 字段编辑器
+  - 字段名称编辑
+  - 字段值编辑
+  - 字段类型设置
+
+- [ ] 重构 `frontend/src/views/Annotator.vue` - 标注主页面
+  - 左侧：PDF 预览 + 标注画布
+  - 右侧：工具面板 + 标注列表
+  - 顶部：操作栏（保存、导出、导入模板）
+  - 底部：页面导航
+
+- [ ] 创建 `frontend/src/api/annotate.js` - 标注 API 封装
+  - `saveAnnotations()` - 保存标注
+  - `loadAnnotations()` - 加载标注
+  - `exportTemplate()` - 导出模板
+  - `importTemplate()` - 导入模板
+  - `applyTemplate()` - 应用模板（自动抽取）
 
 **后端任务：**
-- ✅ 创建 `backend/app/schemas/annotation.py` - 标注 Schema ✅
-  - AnnotationCreate ✅
-  - AnnotationUpdate ✅
-  - AnnotationResponse ✅
-  - AnnotationListResponse ✅
-  - BatchAnnotationCreate ✅
-  - TemplateCreate ✅
-  - TemplateUpdate ✅
-  - TemplateResponse ✅
-  - TemplateListResponse ✅
-  - ApplyTemplateRequest ✅
-  - ApplyTemplateResponse ✅
+- [ ] 创建 `backend/app/schemas/annotation.py` - 标注 Schema
+  - AnnotationCreate
+  - AnnotationUpdate
+  - AnnotationResponse
+  - TemplateCreate
+  - TemplateResponse
 
-- ✅ 创建 `backend/app/api/annotate.py` - 标注 API 路由 ✅
-  - `POST /api/annotations` - 创建标注 ✅
-  - `POST /api/annotations/batch` - 批量创建标注 ✅
-  - `GET /api/annotations/file/{file_id}` - 获取文件标注 ✅
-  - `GET /api/annotations/{annotation_id}` - 获取标注详情 ✅
-  - `GET /api/annotations/file/{file_id}/export` - 导出带标注的 PDF ✅
-  - `PUT /api/annotations/{annotation_id}` - 更新标注 ✅
-  - `DELETE /api/annotations/{annotation_id}` - 删除标注 ✅
-  - `DELETE /api/annotations/file/{file_id}` - 删除文件所有标注 ✅
-  - `POST /api/templates` - 创建模板 ✅
-  - `GET /api/templates` - 获取模板列表 ✅
-  - `GET /api/templates/{template_id}` - 获取模板详情 ✅
-  - `PUT /api/templates/{template_id}` - 更新模板 ✅
-  - `DELETE /api/templates/{template_id}` - 删除模板 ✅
-  - `POST /api/templates/{template_id}/apply` - 应用模板 ✅
+- [ ] 创建 `backend/app/services/annotator.py` - 标注服务
+  - `save_annotations()` - 保存标注数据
+  - `load_annotations()` - 加载标注数据
+  - `delete_annotation()` - 删除标注
+  - `create_template()` - 创建标注模板
+  - `get_templates()` - 获取模板列表
 
-- ✅ 在 `backend/app/main.py` 中注册标注路由 ✅
+- [ ] 创建 `backend/app/api/annotate.py` - 标注 API 路由
+  - `POST /api/annotations` - 保存标注
+  - `GET /api/annotations/{file_id}` - 获取文件标注
+  - `DELETE /api/annotations/{annotation_id}` - 删除标注
+  - `POST /api/templates` - 创建模板
+  - `GET /api/templates` - 获取模板列表
+  - `POST /api/templates/{template_id}/apply` - 应用模板
 
-**技术实现亮点：**
-- ✅ PDF.js 集成实现 PDF 渲染
-- ✅ Canvas API 实现标注框绘制和交互
-- ✅ PyMuPDF (fitz) 实现 PDF 导出
-- ✅ 中文字体优先选择逻辑，确保中文正确显示
-- ✅ 实时标注预览和编辑
-- ✅ 模板管理系统
+- [ ] 在 `backend/app/main.py` 中注册标注路由
 
 **测试验证：**
-- ✅ 测试矩形框选功能 ✅
-- ✅ 测试标注保存和加载 ✅
-- ✅ 测试标注编辑和删除 ✅
-- ✅ 测试多页面标注 ✅
-- ✅ 测试导出带标注的 PDF ✅
-- ✅ 测试中文字体显示 ✅
-- ✅ 测试模板创建和应用 ✅
+- [ ] 测试矩形框选功能
+- [ ] 测试不同标注类型
+- [ ] 测试标注保存和加载
+- [ ] 测试标注编辑和删除
+- [ ] 测试多页面标注
 
 ---
 
-#### 3.2 PDF 导出和字体处理 ✅ 已完成
+#### 3.2 信息抽取功能
 
-**目标：** 导出带标注的 PDF 并正确显示中文
+**目标：** 基于标注样本自动抽取信息
 
-**后端任务：**
-- ✅ 实现 PDF 导出功能（使用 PyMuPDF）✅
-  - `export_annotated_pdf()` - 导出带标注的 PDF ✅
-  - `_choose_cjk_font()` - 智能选择中文字体 ✅
-  - `_get_field_label()` - 字段标签映射 ✅
+**后端任务（核心）：**
+- [ ] 创建 `backend/app/utils/pdf_utils.py` - PDF 工具
+  - `extract_text_from_pdf()` - 提取 PDF 文本
+  - `extract_text_by_coordinates()` - 根据坐标提取文本
+  - `extract_images_from_pdf()` - 提取 PDF 图片
+  - `extract_tables_from_pdf()` - 提取 PDF 表格
 
-- ✅ 中文字体支持优化 ✅
-  - 优先选择已知中文字体（simhei.ttf、simkai.ttf 等）✅
-  - 支持项目字体目录和系统字体 ✅
-  - 跨平台字体支持（Windows/macOS/Linux）✅
+- [ ] 创建 `backend/app/services/extractor.py` - 信息抽取服务
+  - **基于规则的抽取：**
+    - `extract_by_regex()` - 正则表达式匹配（日期、金额等）
+    - `extract_by_keywords()` - 关键词匹配
+  - **基于位置的抽取：**
+    - `extract_by_coordinates()` - 坐标匹配
+    - `find_similar_regions()` - 查找相似区域
+  - **基于模板的抽取：**
+    - `apply_template_extraction()` - 应用模板自动抽取
+    - `calculate_similarity()` - 计算区域相似度
+  - **合同专用抽取：**
+    - `extract_contract_name()` - 抽取合同名称
+    - `extract_contract_date()` - 抽取合同日期
+    - `extract_contract_number()` - 抽取合同编号
+    - `extract_contract_amount()` - 抽取合同金额
 
-**已解决的技术难点：**
-- ✅ PyMuPDF API 正确使用（page.insert_font + fontfile 参数）
-- ✅ 中文字体选择逻辑（避免选择非中文字体）
-- ✅ 字体文件路径管理
-- ✅ 标注框和文本的正确绘制
+- [ ] 更新 `backend/app/api/annotate.py`
+  - 添加自动抽取接口
+  - 返回抽取结果和置信度
+
+**前端任务：**
+- [ ] 更新 `frontend/src/views/Annotator.vue`
+  - 添加"应用模板"功能
+  - 显示自动抽取结果
+  - 结果确认和修正界面
+
+**测试验证：**
+- [ ] 测试合同名称抽取
+- [ ] 测试日期抽取
+- [ ] 测试编号抽取
+- [ ] 测试金额抽取
+- [ ] 测试长文本抽取
+- [ ] 测试图片区域识别
+- [ ] 测试表格识别
+- [ ] 测试模板应用功能
 
 ---
 
@@ -755,12 +780,11 @@ chore: 构建/工具相关
 - ✅ 4个独立转换页面
 - ✅ 转换逻辑优化
 
-### Milestone 3: 标注模块 ✅ 已完成 (2025-12-04)
-- ✅ 标注工具开发
-- ✅ 标注保存和加载
-- ✅ 模板功能
-- ✅ PDF 导出带标注
-- ✅ 中文字体支持
+### Milestone 3: 标注模块（预计 2-3 周）
+- [ ] 标注工具开发
+- [ ] 标注保存和加载
+- [ ] 基于规则的信息抽取
+- [ ] 模板功能
 
 ### Milestone 4: 编辑模块（预计 1-2 周）
 - [ ] 文本编辑
@@ -812,30 +836,20 @@ chore: 构建/工具相关
   - ✅ 压缩包批量处理 (ZIP/RAR)
   - ✅ 4个独立转换页面
   - ✅ 转换进度显示和文件下载
-- **文档标注：** 100% ✅ (2025-12-04 完成)
-  - ✅ 可视化标注工具
-  - ✅ 标注 CRUD API
-  - ✅ 模板管理系统
-  - ✅ PDF 导出功能
-  - ✅ 中文字体支持
 - **PDF 编辑：** 0% ⏳ (待开发)
+- **文档标注：** 0% ⏳ (待开发)
 
 ### 已完成的功能模块
 
 1. ✅ 基础架构搭建 (2025-12-03)
 2. ✅ 文件上传系统 (2025-12-03)
-3. ✅ 数据库模型 (File, Conversion, Annotation, Template) (2025-12-03)
+3. ✅ 数据库模型 (File, Conversion) (2025-12-03)
 4. ✅ 图片转 PDF (2025-12-03)
 5. ✅ Word 转 PDF (2025-12-04)
 6. ✅ OFD 转 PDF (2025-12-04)
 7. ✅ 压缩包批量转 PDF (2025-12-04)
 8. ✅ 4个转换页面完整实现 (2025-12-04)
 9. ✅ 转换逻辑统一优化 (2025-12-04)
-10. ✅ 文档标注工具 (2025-12-04)
-11. ✅ 标注 API 系统 (2025-12-04)
-12. ✅ 模板管理功能 (2025-12-04)
-13. ✅ PDF 导出带标注 (2025-12-04)
-14. ✅ 中文字体支持优化 (2025-12-04)
 
 ### 下一步行动
 
@@ -845,20 +859,12 @@ chore: 构建/工具相关
 4. ✅ ~~实现 Word 文档转 PDF~~ (已完成)
 5. ✅ ~~实现 OFD 转 PDF~~ (已完成)
 6. ✅ ~~实现压缩包批量处理~~ (已完成)
-7. ✅ ~~开发文档标注模块~~ (已完成)
-   - ✅ 标注工具开发
-   - ✅ 标注 API 系统
-   - ✅ 模板管理功能
-   - ✅ PDF 导出功能
-8. 🎯 **建议下一步：开发 PDF 编辑模块**
-   - 文本编辑
-   - 注释和批注
-   - 页面管理
-   - 表单编辑
+7. 🎯 **建议下一步：开发文档标注模块（项目核心功能）**
+   - 标注工具开发
+   - 信息抽取功能
+8. 开发 PDF 编辑模块
 
 ### 本次更新内容 (2025-12-04)
-
-#### 早期更新（文档转换模块）
 
 **完成的功能：**
 - ✅ OFD 转 PDF 完整实现（PyMuPDF 页面渲染方案）
@@ -874,44 +880,15 @@ chore: 构建/工具相关
 - ✅ 临时文件自动清理机制
 - ✅ LocalStorage 持久化转换记录
 
-#### 最新更新（文档标注模块）
-
-**完成的功能：**
-- ✅ 文档标注可视化工具
-  - PDF 渲染和页面导航
-  - 矩形框选、拖拽、缩放
-  - 字段名称和值编辑
-  - 字体大小设置
-- ✅ 标注数据管理
-  - 创建、查询、更新、删除标注
-  - 批量创建标注
-  - 文件标注列表查询
-- ✅ 模板管理系统
-  - 创建和管理标注模板
-  - 应用模板自动生成标注
-  - 模板列表查询
-- ✅ PDF 导出功能
-  - 导出带标注的 PDF
-  - 标注框和文本绘制
-  - 中文字体正确显示
-
-**技术优化：**
-- ✅ PDF.js 集成实现 PDF 预览
-- ✅ Canvas API 实现标注交互
-- ✅ PyMuPDF 实现 PDF 导出
-- ✅ 中文字体智能选择（优先已知中文字体）
-- ✅ 字体文件路径管理（项目字体 + 系统字体）
-- ✅ RESTful API 设计（标注和模板）
-
 **已解决的问题：**
-- ✅ PyMuPDF API 使用问题（page.insert_font + fontfile）
-- ✅ 中文字体选择错误（避免选择非中文字体）
-- ✅ PDF 导出中文显示问题
-- ✅ 模板 API 路由注册问题
-- ✅ 后端服务热重载问题
+- ✅ OFD 转 PDF 格式支持
+- ✅ Word 表格格式显示问题
+- ✅ 压缩包下载文件名和格式
+- ✅ 多后端进程冲突问题
+- ✅ 数据库字段缺失问题
 
 ---
 
-**最后更新：** 2025-12-04 20:00
+**最后更新：** 2025-12-04 16:20
 **维护者：** 开发团队
-**当前版本：** v0.6.0 (文档转换模块 + 文档标注模块完成)
+**当前版本：** v0.3.0 (文档转换模块完成)
