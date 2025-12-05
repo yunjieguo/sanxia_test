@@ -144,3 +144,27 @@ async def download_file(
         filename=db_file.original_name,
         media_type="application/octet-stream"
     )
+
+
+@router.delete("/files", summary="批量删除所有文件")
+async def delete_all_files(
+    db: Session = Depends(get_db)
+):
+    """
+    批量删除所有文件（包括数据库记录、标注数据、转换记录和物理文件）
+
+    注意：此操作不可逆，将删除所有已上传的文件及其相关数据
+
+    Args:
+        db: 数据库会话
+
+    Returns:
+        dict: 删除统计信息
+    """
+    handler = FileHandler(db)
+    result = handler.delete_all_files()
+
+    return {
+        "message": "批量删除完成",
+        "statistics": result
+    }

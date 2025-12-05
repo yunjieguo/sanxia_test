@@ -273,3 +273,81 @@ class FileHandler:
         """
         file_ext = Path(filename).suffix.lower().lstrip(".")
         return file_ext in ["doc", "docx"]
+
+    def delete_all_files(self) -> dict:
+        """
+        删除所有文件（数据库记录和物理文件）
+
+        Returns:
+            dict: 删除统计信息
+
+        Raises:
+            HTTPException: 删除失败
+        """
+        try:
+            # 获取所有文件记录
+            all_files = self.db.query(File).all()
+            file_count = len(all_files)
+            deleted_count = 0
+            failed_files = []
+
+            for db_file in all_files:
+                try:
+                    # 删除关联的标注记录
+                    self.db.query(Annotation).filter(Annotation.file_id == db_file.id).delete()
+
+                    # 删除关联的转换记录及其结果文件
+                    conversions = self.db.query(Conversion).filter(Conversion.file_id == db_file.id).all()
+                    for conv in conversions:
+                        if conv.result_path and os.path.exists(conv.result_path):
+                            try:
+                                os.remove(conv.result_path)
+                            except Exception as e:
+                                print(f"删除转换结果文件失败 {conv.result_path}: {e}")
+                        self.db.delete(conv)
+
+                    # 删除物理文件
+                    if os.path.exists(db_file.file_path):
+                        try:
+                            os.remove(db_file.file_path)
+                        except Exception as e:
+                            print(f"删除物理文件失败 {db_file.file_path}: {e}")
+
+                    # 删除数据库记录
+                    self.db.delete(db_file)
+                    deleted_count += 1
+
+                except Exception as e:
+                    failed_files.append({
+                        "file_id": db_file.id,
+                        "filename": db_file.original_name,
+                        "error": str(e)
+                    })
+                    print(f"删除文件失败 {db_file.id}: {e}")
+
+            # 提交所有删除操作
+            self.db.commit()
+
+            # 清理上传目录中可能遗留的文件
+            upload_dir = settings.UPLOAD_DIR
+            if os.path.exists(upload_dir):
+                remaining_files = []
+                for filename in os.listdir(upload_dir):
+                    file_path = os.path.join(upload_dir, filename)
+                    if os.path.isfile(file_path):
+                        try:
+                            os.remove(file_path)
+                        except Exception as e:
+                            remaining_files.append(filename)
+                            print(f"删除遗留文件失败 {filename}: {e}")
+
+            return {
+                "total": file_count,
+                "deleted": deleted_count,
+                "failed": len(failed_files),
+                "failed_files": failed_files
+            }
+
+        except Exception as e:
+            self.db.rollback()
+            raise HTTPException(status_code=500, detail=f"批量删除失败: {str(e)}")
