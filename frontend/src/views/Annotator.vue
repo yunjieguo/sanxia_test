@@ -145,6 +145,22 @@
                   />
                 </el-form-item>
 
+                <el-form-item label="文字颜色" v-if="currentTool.type !== 'image'">
+                  <el-color-picker
+                    v-model="currentTool.fontColor"
+                    show-alpha
+                    :predefine="['#303133', '#409EFF', '#67C23A', '#E6A23C', '#F56C6C', '#909399']"
+                  />
+                </el-form-item>
+
+                <el-form-item label="字体" v-if="currentTool.type !== 'image'">
+                  <el-select v-model="currentTool.fontFamily" filterable allow-create placeholder="选择或输入字体">
+                    <el-option label="微软雅黑" value="Microsoft YaHei" />
+                    <el-option label="黑体" value="SimHei" />
+                    <el-option label="宋体" value="SimSun" />
+                  </el-select>
+                </el-form-item>
+
                 <!-- 图片上传组件（当标注类型为图片时显示） -->
                 <el-form-item label="上传图片" v-if="currentTool.type === 'image'">
                   <el-upload
@@ -260,7 +276,11 @@
                       <el-icon><Delete /></el-icon>
                     </el-button>
                   </div>
-                  <div class="annotation-value" v-if="annotation.field_value">
+                  <div
+                    class="annotation-value"
+                    v-if="annotation.field_value"
+                    :style="getAnnotationTextStyle(annotation)"
+                  >
                     {{ annotation.field_value }}
                   </div>
                   <!-- 显示图片缩略图 -->
@@ -381,6 +401,17 @@
                 <img :src="getAnnotationImageUrl(row.image_path || row.field_value)" alt="模板图片" />
               </div>
             </template>
+            <template v-else-if="row.field_type !== 'image'">
+              <span
+                class="template-text"
+                :style="{
+                  color: row.coordinates?.font_color || '#333',
+                  fontFamily: sanitizeFontFamily(row.coordinates?.font_family) || 'SimHei'
+                }"
+              >
+                {{ row.field_value || '—' }}
+              </span>
+            </template>
             <template v-else>
               {{ row.field_value || '—' }}
             </template>
@@ -487,6 +518,8 @@ const currentTool = ref({
   fieldName: '',
   fieldValue: '',
   fontSize: 12,
+  fontColor: '#333333',
+  fontFamily: 'SimHei',
   imageFile: null,
   imagePreview: null,
   imagePath: null
@@ -564,6 +597,8 @@ watch(
       currentTool.value.fieldName = 'image'
       currentTool.value.fieldValue = ''
       currentTool.value.fontSize = 12
+      currentTool.value.fontColor = '#333333'
+      currentTool.value.fontFamily = 'SimHei'
     } else if (oldType === 'image') {
       currentTool.value.imageFile = null
       currentTool.value.imagePreview = null
@@ -807,7 +842,12 @@ const stopDrawing = async () => {
     field_name: currentTool.value.fieldName,
     field_value: currentTool.value.fieldValue || '',
     image_path: imagePath,
-    coordinates: { ...currentRect.value, font_size: currentTool.value.fontSize }
+    coordinates: {
+      ...currentRect.value,
+      font_size: currentTool.value.fontSize,
+      font_color: currentTool.value.fontColor,
+      font_family: currentTool.value.fontFamily
+    }
   }
 
   annotations.value.push(annotation)
@@ -855,6 +895,8 @@ const redrawAnnotations = () => {
   pageAnnotations.value.forEach(annotation => {
     const coords = annotation.coordinates
     const fontSize = coords.font_size || coords.fontSize || 12
+    const fontColor = coords.font_color || '#333'
+    const fontFamily = formatFontFamily(sanitizeFontFamily(coords.font_family || 'SimHei'))
     const isActive = selectedAnnotation.value === annotation
     ctx.strokeStyle = isActive ? '#f56c6c' : getAnnotationColor(annotation.annotation_type)
     ctx.lineWidth = isActive ? 3 : 2
@@ -873,13 +915,13 @@ const redrawAnnotations = () => {
     const textY = coords.y - 4 // 字段名放在选框上方
     const valueY = coords.y + padding + fontSize
 
-    ctx.fillStyle = getAnnotationColor(annotation.annotation_type)
-    ctx.font = `${fontSize}px Arial`
+    ctx.fillStyle = fontColor
+    ctx.font = `${fontSize}px ${fontFamily}`
     ctx.fillText(label, textX, textY)
 
     if (value) {
-      ctx.fillStyle = '#333'
-      ctx.font = `${fontSize}px Arial`
+      ctx.fillStyle = fontColor
+      ctx.font = `${fontSize}px ${fontFamily}`
       ctx.fillText(value, textX, valueY)
     }
 
@@ -971,6 +1013,32 @@ const getAnnotationTypeColor = (type) => {
   return colors[type] || 'info'
 }
 
+const formatFontFamily = (family) => {
+  if (!family) return 'Arial'
+  // 如果包含空格或中文，使用引号包裹，避免 canvas 字体解析失败
+  if (family.includes(' ') || /[\u4e00-\u9fa5]/.test(family)) {
+    return `'${family}'`
+  }
+  return family
+}
+
+const sanitizeFontFamily = (family) => {
+  if (!family) return 'SimHei'
+  // 去除外层引号，避免重复包裹
+  const trimmed = family.trim().replace(/^['"]+|['"]+$/g, '')
+  return trimmed || 'SimHei'
+}
+
+const getAnnotationTextStyle = (annotation) => {
+  const coords = annotation.coordinates || {}
+  const color = coords.font_color || '#333'
+  const family = sanitizeFontFamily(coords.font_family) || 'SimHei'
+  return {
+    color,
+    fontFamily: family
+  }
+}
+
 // 加载图片并缓存，避免重复请求
 const loadImage = (url) => {
   if (imageCache.has(url)) {
@@ -994,6 +1062,8 @@ const selectAnnotation = (annotation) => {
   currentTool.value.fieldValue = annotation.field_value || ''
   currentTool.value.type = annotation.annotation_type
   currentTool.value.fontSize = annotation.coordinates?.font_size || annotation.coordinates?.fontSize || 12
+  currentTool.value.fontColor = annotation.coordinates?.font_color || '#333333'
+  currentTool.value.fontFamily = sanitizeFontFamily(annotation.coordinates?.font_family) || 'SimHei'
   if (annotation.annotation_type === 'image') {
     currentTool.value.imagePath = annotation.image_path || null
     currentTool.value.imageFile = null
@@ -1083,7 +1153,9 @@ const updateSelectedAnnotation = async () => {
       image_path: imagePath,
       coordinates: {
         ...(selectedAnnotation.value.coordinates || currentRect.value || {}),
-        font_size: currentTool.value.fontSize
+        font_size: currentTool.value.fontSize,
+        font_color: currentTool.value.fontColor,
+        font_family: currentTool.value.fontFamily
       }
     }
 
@@ -1638,6 +1710,10 @@ const clearUploadedImage = () => {
   max-width: 100%;
   max-height: 100%;
   object-fit: contain;
+}
+
+.template-text {
+  white-space: pre-wrap;
 }
 
 .empty-state {

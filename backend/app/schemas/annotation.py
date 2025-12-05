@@ -13,6 +13,8 @@ class CoordinatesSchema(BaseModel):
     width: float = Field(..., description="宽度")
     height: float = Field(..., description="高度")
     font_size: float | None = Field(None, description="显示字体大小")
+    font_color: Optional[str] = Field(None, description="字体颜色")
+    font_family: Optional[str] = Field(None, description="字体")
 
     class Config:
         json_schema_extra = {
@@ -20,7 +22,10 @@ class CoordinatesSchema(BaseModel):
                 "x": 100.5,
                 "y": 200.3,
                 "width": 150.0,
-                "height": 50.0
+                "height": 50.0,
+                "font_size": 12,
+                "font_color": "#333333",
+                "font_family": "Arial"
             }
         }
 
@@ -72,7 +77,7 @@ class AnnotationResponse(BaseModel):
     field_name: str
     field_value: Optional[str] = None
     image_path: Optional[str] = None
-    coordinates: Dict[str, float]
+    coordinates: Dict[str, Any]
     created_at: datetime
     updated_at: datetime
 
@@ -124,8 +129,8 @@ class FieldDefinition(BaseModel):
     required: bool = Field(default=False, description="是否必填")
     description: Optional[str] = Field(None, description="字段描述")
     page_number: Optional[int] = Field(None, ge=1, description="默认页码")
-    coordinates: Optional[Dict[str, float]] = Field(
-        None, description="默认坐标 {x,y,width,height}"
+    coordinates: Optional[Dict[str, Any]] = Field(
+        None, description="默认坐标/样式 {x,y,width,height,font_size,font_color,font_family}"
     )
     field_value: Optional[str] = Field(None, description="默认字段值")
     image_path: Optional[str] = Field(None, description="图片字段的存储路径")
