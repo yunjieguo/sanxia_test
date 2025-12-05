@@ -79,6 +79,35 @@
           </div>
         </template>
 
+        <div class="paint-toolbar">
+          <el-button-group size="small">
+            <el-button :type="paintingMode ? 'primary' : 'default'" @click="togglePainting">
+              <el-icon><Edit /></el-icon>
+              画笔
+            </el-button>
+            <el-button :type="paintTool === 'free' ? 'primary' : 'default'" @click="selectPaintTool('free')">
+              曲线
+            </el-button>
+            <el-button :type="paintTool === 'line' ? 'primary' : 'default'" @click="selectPaintTool('line')">
+              直线
+            </el-button>
+            <el-button :type="paintTool === 'rect' ? 'primary' : 'default'" @click="selectPaintTool('rect')">
+              矩形
+            </el-button>
+            <el-button :type="paintTool === 'eraser' ? 'primary' : 'default'" @click="selectPaintTool('eraser')">
+              橡皮
+            </el-button>
+          </el-button-group>
+          <div class="paint-controls">
+            <span class="label">粗细</span>
+            <el-slider v-model="paintWidth" :min="1" :max="10" :step="1" style="width: 120px" />
+            <span class="label">颜色</span>
+            <el-color-picker v-model="paintColor" show-alpha />
+            <el-button size="small" @click="undoPaint">回退</el-button>
+            <el-button size="small" @click="clearPaint">清空</el-button>
+          </div>
+        </div>
+
         <div class="pdf-viewer-wrapper" ref="pdfViewerWrapper">
           <div class="pdf-viewer" :style="{ transform: `scale(${scale})`, transformOrigin: 'top center' }">
             <vue-pdf-embed
@@ -95,6 +124,7 @@
               @mousedown="startDrawing"
               @mousemove="drawing"
               @mouseup="stopDrawing"
+              @mouseleave="onCanvasLeave"
             ></canvas>
           </div>
         </div>
@@ -112,7 +142,6 @@
                     <el-option label="文本" value="text" />
                     <!-- <el-option label="长文本" value="long_text" /> -->
                     <el-option label="图片" value="image" />
-                    <el-option label="表格" value="table" />
                   </el-select>
                 </el-form-item>
 
@@ -223,14 +252,23 @@
                   title="使用提示"
                   type="info"
                   :closable="false"
-                  description="1. 选择标注类型和字段名称&#10;2. 点击“开始标注”&#10;3. 在 PDF 上拖动鼠标框选区域&#10;4. 完成后点击“保存标注”"
+                  v-html="`
+                  <div>1. 选择标注类型和字段名称; <br />
+                  2. 点击“开始标注”; <br />
+                  3. 在 PDF 上拖动鼠标框选区域; <br />
+                  4. 完成后点击“保存标注”; <br />
+                  </div>
+                  `"
                 />
               </div>
             </div>
           </el-tab-pane>
 
           <!-- 标注列表 -->
-          <el-tab-pane label="标注列表" name="annotations">
+          <el-tab-pane
+            :label="`标注列表${annotations.length ? '（' + annotations.length + '）' : ''}`"
+            name="annotations"
+          >
             <div class="annotations-header">
               <div>
                 <strong>标注列表</strong>
@@ -290,6 +328,45 @@
                   <div class="annotation-coords">
                     页码: {{ annotation.page_number }} |
                     坐标: ({{ Math.round(annotation.coordinates.x) }}, {{ Math.round(annotation.coordinates.y) }})
+                  </div>
+                </div>
+              </div>
+
+              <el-divider content-position="left">
+                画笔/橡皮 <span v-if="pagePaintStrokes.length">（{{ pagePaintStrokes.length }} 条）</span>
+              </el-divider>
+              <div v-if="pagePaintStrokes.length === 0" class="empty-annotations">
+                <el-empty description="当前页暂无画笔" />
+              </div>
+              <div v-else>
+                <div
+                  v-for="(stroke, idx) in pagePaintStrokes"
+                  :key="idx"
+                  class="annotation-item"
+                >
+                  <div class="annotation-header">
+                    <el-tag size="small" type="warning">{{ stroke.type === 'eraser' ? '橡皮' : '画笔' }}</el-tag>
+                    <span class="field-name">宽度 {{ stroke.width }}</span>
+                    <span
+                      v-if="stroke.type !== 'eraser'"
+                      class="color-dot"
+                      :style="{ background: stroke.color || '#f56c6c' }"
+                      title="颜色"
+                    ></span>
+                    <el-button
+                      type="danger"
+                      size="small"
+                      text
+                      @click.stop="deletePaintStroke(stroke)"
+                    >
+                      <el-icon><Delete /></el-icon>
+                    </el-button>
+                  </div>
+                  <div class="annotation-coords">
+                    <template v-if="getStrokeBounds(stroke)">
+                      范围: {{ Math.round(getStrokeBounds(stroke).x) }}, {{ Math.round(getStrokeBounds(stroke).y) }} -
+                      {{ Math.round(getStrokeBounds(stroke).width) }} × {{ Math.round(getStrokeBounds(stroke).height) }}
+                    </template>
                   </div>
                 </div>
               </div>
@@ -437,6 +514,39 @@
             </template>
           </el-table-column>
         </el-table>
+
+        <el-divider content-position="left">画笔/橡皮</el-divider>
+        <el-table
+          :data="(previewTemplate.template_data && previewTemplate.template_data.paint_data) || []"
+          size="small"
+          border
+          v-if="previewTemplate.template_data && previewTemplate.template_data.paint_data && previewTemplate.template_data.paint_data.length"
+        >
+          <el-table-column label="类型" width="90">
+            <template #default="{ row }">
+              {{ row.type === 'eraser' ? '橡皮' : '画笔' }}
+            </template>
+          </el-table-column>
+          <el-table-column label="颜色" width="120">
+            <template #default="{ row }">
+              <span v-if="row.type !== 'eraser'" class="color-dot" :style="{ background: row.color || '#f56c6c' }"></span>
+              <span v-else>-</span>
+            </template>
+          </el-table-column>
+          <el-table-column label="宽度" width="80">
+            <template #default="{ row }">
+              {{ row.width || 0 }}
+            </template>
+          </el-table-column>
+          <el-table-column label="页码" width="80">
+            <template #default="{ row }">
+              {{ row.page_number || 1 }}
+            </template>
+          </el-table-column>
+        </el-table>
+        <div v-else class="empty-annotations">
+          <el-empty description="暂无画笔数据" />
+        </div>
       </div>
       <template #footer>
         <el-button @click="showTemplatePreviewDialog = false">关闭</el-button>
@@ -481,7 +591,9 @@ import {
   updateAnnotation,
   uploadAnnotationImage,
   getAnnotationImageUrl,
-  deleteAnnotationImage
+  deleteAnnotationImage,
+  getPaintData,
+  savePaintData
 } from '../api/annotate'
 import { getConversionDownloadUrl } from '../api/convert'
 
@@ -506,9 +618,19 @@ const annotationCanvas = ref(null)
 const canvasContext = ref(null)
 const isDrawing = ref(false)
 const drawMode = ref(false)
+const isMoving = ref(false)
+const movingAnnotation = ref(null)
+const moveOffset = ref({ x: 0, y: 0 })
 const startPoint = ref({ x: 0, y: 0 })
 const currentRect = ref(null)
 const imageCache = new Map()
+// 画笔工具
+const paintingMode = ref(false)
+const paintTool = ref('free') // free | line | rect | eraser
+const paintColor = ref('#f56c6c')
+const paintWidth = ref(2)
+const paintHistory = ref([]) // {type,color,width,points?,rect?,page_number}
+const tempPaint = ref(null)
 
 // 标注数据
 const annotations = ref([])
@@ -556,6 +678,36 @@ const filteredFiles = computed(() => {
 const pageAnnotations = computed(() => {
   return annotations.value.filter(ann => ann.page_number === currentPage.value)
 })
+
+const pagePaintStrokes = computed(() => {
+  return (paintHistory.value || []).filter(stroke => (stroke.page_number || 1) === currentPage.value)
+})
+
+const getStrokeBounds = (stroke) => {
+  if (!stroke) return null
+  if (stroke.type === 'rect' && stroke.rect) {
+    return {
+      x: stroke.rect.x,
+      y: stroke.rect.y,
+      width: stroke.rect.width,
+      height: stroke.rect.height
+    }
+  }
+  const pts = stroke.points || []
+  if (pts.length === 0) return null
+  const xs = pts.map(p => p.x)
+  const ys = pts.map(p => p.y)
+  const minX = Math.min(...xs)
+  const maxX = Math.max(...xs)
+  const minY = Math.min(...ys)
+  const maxY = Math.max(...ys)
+  return {
+    x: minX,
+    y: minY,
+    width: maxX - minX,
+    height: maxY - minY
+  }
+}
 
 const canAnnotate = computed(() => {
   if (!currentTool.value.type) return false
@@ -752,6 +904,12 @@ const enableDrawMode = () => {
     ElMessage.warning('请先选择标注类型和字段名称')
     return
   }
+  // 关闭画笔模式
+  if (paintingMode.value) {
+    paintingMode.value = false
+    tempPaint.value = null
+    setCanvasCursor('crosshair')
+  }
   drawMode.value = true
   ElMessage.info('请在 PDF 上拖动鼠标框选区域')
 }
@@ -766,25 +924,123 @@ const cancelDrawMode = () => {
 
 // 开始绘制
 const startDrawing = (e) => {
-  if (!drawMode.value) return
-
   const canvas = annotationCanvas.value
+  if (!canvas) return
+
   const rect = canvas.getBoundingClientRect()
-  startPoint.value = {
+  const point = {
     x: (e.clientX - rect.left) / scale.value,
     y: (e.clientY - rect.top) / scale.value
+  }
+
+  // 移动模式：未开启绘制时，允许拖动已有标注
+  if (!drawMode.value && !paintingMode.value) {
+    const hit = findAnnotationAtPoint(point.x, point.y)
+    if (hit) {
+      selectAnnotation(hit)
+      movingAnnotation.value = hit
+      moveOffset.value = {
+        x: point.x - (hit.coordinates?.x || 0),
+        y: point.y - (hit.coordinates?.y || 0)
+      }
+      isMoving.value = true
+      setCanvasCursor('grabbing')
+    }
+    return
+  }
+
+  // 画笔绘制
+  if (paintingMode.value) {
+    isDrawing.value = true
+    if (paintTool.value === 'free') {
+      tempPaint.value = {
+        type: 'free',
+        color: paintColor.value,
+        width: paintWidth.value,
+        points: [{ x: point.x, y: point.y }],
+        page_number: currentPage.value
+      }
+    } else if (paintTool.value === 'eraser') {
+      tempPaint.value = {
+        type: 'eraser',
+        color: '#ffffff',
+        width: paintWidth.value,
+        points: [{ x: point.x, y: point.y }],
+        page_number: currentPage.value
+      }
+    } else if (paintTool.value === 'line') {
+      tempPaint.value = {
+        type: 'line',
+        color: paintColor.value,
+        width: paintWidth.value,
+        points: [{ x: point.x, y: point.y }],
+        page_number: currentPage.value
+      }
+    } else if (paintTool.value === 'rect') {
+      tempPaint.value = {
+        type: 'rect',
+        color: paintColor.value,
+        width: paintWidth.value,
+        rect: { x: point.x, y: point.y, width: 0, height: 0 },
+        page_number: currentPage.value
+      }
+    }
+    return
+  }
+
+  startPoint.value = {
+    x: point.x,
+    y: point.y
   }
   isDrawing.value = true
 }
 
 // 绘制中
 const drawing = (e) => {
-  if (!isDrawing.value || !drawMode.value) return
-
   const canvas = annotationCanvas.value
   const rect = canvas.getBoundingClientRect()
   const currentX = (e.clientX - rect.left) / scale.value
   const currentY = (e.clientY - rect.top) / scale.value
+
+  // hover 状态下提示可拖动
+  if (!drawMode.value && !isMoving.value && !paintingMode.value) {
+    const hit = findAnnotationAtPoint(currentX, currentY)
+    setCanvasCursor(hit ? 'grab' : 'crosshair')
+  }
+
+  // 画笔绘制
+  if (paintingMode.value && isDrawing.value && tempPaint.value) {
+    if (tempPaint.value.type === 'free' || tempPaint.value.type === 'eraser') {
+      tempPaint.value.points.push({ x: currentX, y: currentY })
+    } else if (tempPaint.value.type === 'line') {
+      tempPaint.value.points[1] = { x: currentX, y: currentY }
+    } else if (tempPaint.value.type === 'rect') {
+      const r = tempPaint.value.rect
+      tempPaint.value.rect = {
+        ...r,
+        width: currentX - r.x,
+        height: currentY - r.y
+      }
+    }
+    redrawAnnotations()
+    return
+  }
+
+  // 拖动已有标注
+  if (isMoving.value && movingAnnotation.value) {
+    const ann = movingAnnotation.value
+    const coords = ann.coordinates || {}
+    const newCoords = {
+      ...coords,
+      x: currentX - moveOffset.value.x,
+      y: currentY - moveOffset.value.y
+    }
+    ann.coordinates = newCoords
+    redrawAnnotations()
+    return
+  }
+
+  if (!isDrawing.value || !drawMode.value) return
 
   currentRect.value = {
     x: Math.min(startPoint.value.x, currentX),
@@ -799,6 +1055,53 @@ const drawing = (e) => {
 
 // 停止绘制
 const stopDrawing = async () => {
+  // 停止拖动已有标注
+  if (isMoving.value && movingAnnotation.value) {
+    const ann = movingAnnotation.value
+    isMoving.value = false
+    movingAnnotation.value = null
+    setCanvasCursor('grab')
+
+    // 如果已保存，则同步更新后端坐标
+    if (ann.id) {
+      try {
+        const payload = {
+          file_id: selectedFileId.value,
+          page_number: ann.page_number || currentPage.value,
+          annotation_type: ann.annotation_type,
+          field_name: ann.field_name,
+          field_value: ann.field_value,
+          image_path: ann.image_path,
+          coordinates: {
+            ...(ann.coordinates || {}),
+            font_size: ann.coordinates?.font_size || ann.coordinates?.fontSize || currentTool.value.fontSize,
+            font_color: ann.coordinates?.font_color || currentTool.value.fontColor,
+            font_family: ann.coordinates?.font_family || currentTool.value.fontFamily
+          }
+        }
+        const resp = await updateAnnotation(ann.id, payload)
+        ann.coordinates = resp.coordinates || payload.coordinates
+      } catch (error) {
+        ElMessage.error('更新标注位置失败: ' + (error.message || '未知错误'))
+      }
+    }
+    redrawAnnotations()
+    return
+  }
+
+  // 结束画笔绘制
+  if (paintingMode.value && isDrawing.value && tempPaint.value) {
+    if ((tempPaint.value.type === 'free' || tempPaint.value.type === 'eraser') && tempPaint.value.points.length < 2) {
+      tempPaint.value = null
+    } else {
+      paintHistory.value.push(tempPaint.value)
+      tempPaint.value = null
+    }
+    isDrawing.value = false
+    redrawAnnotations()
+    return
+  }
+
   if (!isDrawing.value || !drawMode.value || !currentRect.value) return
 
   // 如果是图片标注，先确保有图片并上传/复用路径
@@ -891,6 +1194,9 @@ const redrawAnnotations = () => {
   // 清空画布
   ctx.clearRect(0, 0, canvas.width, canvas.height)
 
+  // 绘制画笔
+  drawPaintStrokes(ctx)
+
   // 绘制当前页面的标注
   pageAnnotations.value.forEach(annotation => {
     const coords = annotation.coordinates
@@ -955,13 +1261,142 @@ const redrawAnnotations = () => {
   })
 }
 
+const findAnnotationAtPoint = (x, y) => {
+  // 倒序遍历，优先选中后绘制的标注
+  for (let i = pageAnnotations.value.length - 1; i >= 0; i -= 1) {
+    const ann = pageAnnotations.value[i]
+    const c = ann.coordinates || {}
+    if (x >= c.x && x <= c.x + c.width && y >= c.y && y <= c.y + c.height) {
+      return ann
+    }
+  }
+  return null
+}
+
+const setCanvasCursor = (cursor) => {
+  const canvas = annotationCanvas.value
+  if (canvas) {
+    canvas.style.cursor = cursor
+  }
+}
+
+const togglePainting = () => {
+  paintingMode.value = !paintingMode.value
+  if (paintingMode.value) {
+    drawMode.value = false
+    setCanvasCursor('crosshair')
+  }
+}
+
+const selectPaintTool = (tool) => {
+  paintTool.value = tool
+  if (!paintingMode.value) paintingMode.value = true
+}
+
+const undoPaint = () => {
+  if (paintHistory.value.length > 0) {
+    paintHistory.value.pop()
+    redrawAnnotations()
+  }
+}
+
+const clearPaint = () => {
+  paintHistory.value = []
+  tempPaint.value = null
+  redrawAnnotations()
+}
+
+// 画笔保存/加载
+const normalizePaintStrokes = (strokes = []) => {
+  return (strokes || []).map(stroke => ({
+    ...stroke,
+    page_number: stroke.page_number || 1
+  }))
+}
+
+const loadPaint = async () => {
+  if (!selectedFileId.value) return { total: 0, eraser: 0 }
+  try {
+    const resp = await getPaintData(selectedFileId.value)
+    const strokes = normalizePaintStrokes(resp.strokes || [])
+    paintHistory.value = strokes
+    tempPaint.value = null
+    redrawAnnotations()
+    return { total: strokes.length, eraser: strokes.filter(s => s.type === 'eraser').length }
+  } catch (error) {
+    console.error('加载画笔失败:', error)
+    return { total: 0, eraser: 0 }
+  }
+}
+
+const savePaint = async () => {
+  if (!selectedFileId.value) return
+  try {
+    await savePaintData(selectedFileId.value, paintHistory.value || [])
+  } catch (error) {
+    console.error('保存画笔失败:', error)
+  }
+}
+
+const deletePaintStroke = async (stroke) => {
+  const idx = paintHistory.value.indexOf(stroke)
+  if (idx > -1) {
+    paintHistory.value.splice(idx, 1)
+    tempPaint.value = null
+    redrawAnnotations()
+    try {
+      await savePaint()
+      ElMessage.success('画笔已删除')
+    } catch (error) {
+      ElMessage.error('画笔删除后保存失败: ' + (error.message || '未知错误'))
+    }
+  }
+}
+
+const drawPaintStrokes = (ctx) => {
+  const drawStroke = (stroke) => {
+    ctx.save()
+    ctx.strokeStyle = stroke.color
+    ctx.lineWidth = stroke.width
+    ctx.lineJoin = 'round'
+    ctx.lineCap = 'round'
+    if (stroke.type === 'free' || stroke.type === 'eraser') {
+      const pts = stroke.points || []
+      if (pts.length < 2) return
+      ctx.beginPath()
+      ctx.moveTo(pts[0].x, pts[0].y)
+      for (let i = 1; i < pts.length; i++) {
+        ctx.lineTo(pts[i].x, pts[i].y)
+      }
+      ctx.stroke()
+    } else if (stroke.type === 'line') {
+      const p1 = stroke.points?.[0]
+      const p2 = stroke.points?.[1]
+      if (!p1 || !p2) return
+      ctx.beginPath()
+      ctx.moveTo(p1.x, p1.y)
+      ctx.lineTo(p2.x, p2.y)
+      ctx.stroke()
+    } else if (stroke.type === 'rect') {
+      const rect = stroke.rect
+      if (!rect) return
+      ctx.strokeRect(rect.x, rect.y, rect.width, rect.height)
+    }
+    ctx.restore()
+  }
+
+  paintHistory.value.forEach(drawStroke)
+  if (tempPaint.value) {
+    drawStroke(tempPaint.value)
+  }
+}
+
 // 获取标注颜色
 const getAnnotationColor = (type) => {
   const colors = {
     text: '#409EFF',
     long_text: '#67C23A',
-    image: '#E6A23C',
-    table: '#F56C6C'
+    image: '#E6A23C'
   }
   return colors[type] || '#909399'
 }
@@ -970,9 +1405,8 @@ const getAnnotationColor = (type) => {
 const getAnnotationTypeName = (type) => {
   const names = {
     text: '文本',
-    // long_text: '长文本',
-    image: '图片',
-    table: '表格'
+    long_text: '长文本',
+    image: '图片'
   }
   return names[type] || type
 }
@@ -982,8 +1416,7 @@ const getFieldTypeName = (type) => {
   const names = {
     text: '文本',
     long_text: '长文本',
-    image: '图片',
-    table: '表格'
+    image: '图片'
   }
   return names[type] || type || '-'
 }
@@ -1007,8 +1440,7 @@ const getAnnotationTypeColor = (type) => {
   const colors = {
     text: 'primary',
     long_text: 'success',
-    image: 'warning',
-    table: 'danger'
+    image: 'warning'
   }
   return colors[type] || 'info'
 }
@@ -1217,6 +1649,10 @@ const clearAnnotations = async () => {
         const idx = annotations.value.indexOf(ann)
         if (idx > -1) annotations.value.splice(idx, 1)
       }
+      // 清空当前页画笔
+      const remaining = paintHistory.value.filter(stroke => (stroke.page_number || 1) !== currentPage.value)
+      paintHistory.value = remaining
+      await savePaint()
       selectedAnnotation.value = null
       redrawAnnotations()
       ElMessage.success('已清空当前页标注')
@@ -1228,6 +1664,8 @@ const clearAnnotations = async () => {
       try {
         await deleteFileAnnotations(selectedFileId.value)
         annotations.value = []
+        paintHistory.value = []
+        await savePaint()
         selectedAnnotation.value = null
         redrawAnnotations()
         ElMessage.success('已清空全部标注')
@@ -1252,6 +1690,7 @@ const saveAnnotations = async () => {
 
     if (unsavedAnnotations.length === 0) {
       ElMessage.info('所有标注已保存')
+      await savePaint()
       return
     }
 
@@ -1261,6 +1700,8 @@ const saveAnnotations = async () => {
     })
 
     ElMessage.success(`成功保存 ${unsavedAnnotations.length} 个标注`)
+
+    await savePaint()
 
     // 重新加载标注
     await loadAnnotations()
@@ -1276,10 +1717,14 @@ const loadAnnotations = async () => {
   try {
     const response = await getFileAnnotations(selectedFileId.value)
     annotations.value = response.annotations || []
+    const paintStat = await loadPaint()
     redrawAnnotations()
 
-    if (annotations.value.length > 0) {
-      ElMessage.success(`加载了 ${annotations.value.length} 个标注`)
+    if (annotations.value.length > 0 || paintStat.total > 0) {
+      const paintMsg = paintStat.total > 0
+        ? `，${paintStat.total} 条画笔/橡皮${paintStat.eraser ? `（橡皮 ${paintStat.eraser} 条）` : ''}`
+        : ''
+      ElMessage.success(`加载了 ${annotations.value.length} 条标注${paintMsg}`)
     }
   } catch (error) {
     console.error('加载标注失败:', error)
@@ -1344,7 +1789,8 @@ const createNewTemplate = async () => {
 
     await createTemplate({
       ...newTemplate.value,
-      fields
+      fields,
+      paint_data: paintHistory.value || []
     })
 
     ElMessage.success('模板创建成功')
@@ -1393,6 +1839,13 @@ const applyTemplateToFile = async (templateId) => {
   try {
     const response = await applyTemplate(templateId, selectedFileId.value)
     ElMessage.info(response.message)
+    if (response.paint_data) {
+      paintHistory.value = normalizePaintStrokes(response.paint_data)
+      tempPaint.value = null
+      redrawAnnotations()
+    } else {
+      await loadPaint()
+    }
     await loadAnnotations()
     activeTab.value = 'annotations'
   } catch (error) {
@@ -1456,15 +1909,21 @@ const clearUploadedImage = () => {
   currentTool.value.imagePreview = null
   currentTool.value.imagePath = null
 }
+
+// 鼠标移出时重置指针
+const onCanvasLeave = () => {
+  if (!drawMode.value && !isMoving.value) {
+    setCanvasCursor('crosshair')
+  }
+}
 </script>
 
 <style scoped>
 .annotator-page {
-  padding: 20px;
-  height: calc(100vh - 120px);
+  height: calc(104vh - 120px);
   display: flex;
   flex-direction: column;
-  gap: 15px;
+  gap: 5px;
 }
 
 .toolbar-card {
@@ -1533,7 +1992,8 @@ const clearUploadedImage = () => {
   display: flex;
   justify-content: center;
   align-items: flex-start;
-  max-height: calc(100vh - 220px);
+  height: calc(90vh - 190px);
+  max-height: none;
   padding: 8px 0;
 }
 
@@ -1542,6 +2002,25 @@ const clearUploadedImage = () => {
   display: inline-block;
   transform-origin: top center;
   padding-bottom: 84px; /* 为画布预留额外高度 */
+}
+
+.paint-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: -15px 0 8px 0;
+  flex-wrap: nowrap;
+}
+
+.paint-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.paint-controls .label {
+  color: #666;
+  font-size: 13px;
 }
 
 .annotation-canvas {
@@ -1622,6 +2101,15 @@ const clearUploadedImage = () => {
 .annotation-coords {
   font-size: 12px;
   color: #999;
+}
+
+.color-dot {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 1px solid #e0e0e0;
+  margin-left: 8px;
 }
 
 .annotation-image {

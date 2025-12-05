@@ -216,3 +216,29 @@ export function deleteAnnotationImage(imagePath) {
     method: 'delete'
   })
 }
+
+/**
+ * 获取画笔数据
+ * @param {number} fileId 文件ID
+ * @returns {Promise}
+ */
+export function getPaintData(fileId) {
+  return request({
+    url: `/annotations/paint/${fileId}`,
+    method: 'get'
+  })
+}
+
+/**
+ * 保存画笔数据
+ * @param {number} fileId 文件ID
+ * @param {Array} strokes 画笔轨迹列表
+ * @returns {Promise}
+ */
+export function savePaintData(fileId, strokes = []) {
+  return request({
+    url: `/annotations/paint/${fileId}`,
+    method: 'post',
+    data: { strokes }
+  })
+}

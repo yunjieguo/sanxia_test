@@ -142,6 +142,7 @@ class TemplateCreate(BaseModel):
     document_type: str = Field(..., description="文档类型（contract/invoice等）")
     description: Optional[str] = Field(None, description="模板描述")
     fields: List[FieldDefinition] = Field(..., description="字段定义列表")
+    paint_data: Optional[List[Dict[str, Any]]] = Field(None, description="画笔数据")
 
     class Config:
         json_schema_extra = {
@@ -179,6 +180,7 @@ class TemplateUpdate(BaseModel):
     document_type: Optional[str] = Field(None, description="文档类型")
     description: Optional[str] = Field(None, description="模板描述")
     fields: Optional[List[FieldDefinition]] = Field(None, description="字段定义列表")
+    paint_data: Optional[List[Dict[str, Any]]] = Field(None, description="画笔数据")
 
 
 class TemplateResponse(BaseModel):
@@ -218,6 +220,7 @@ class ApplyTemplateResponse(BaseModel):
     message: str
     extracted_data: List[Dict[str, Any]]
     total_extracted: int
+    paint_data: Optional[List[Dict[str, Any]]] = Field(None, description="画笔数据")
 
     class Config:
         json_schema_extra = {
@@ -232,5 +235,22 @@ class ApplyTemplateResponse(BaseModel):
                     }
                 ],
                 "total_extracted": 1
+            }
+        }
+
+
+# ==================== 画笔 Schema ====================
+
+class PaintData(BaseModel):
+    """画笔数据"""
+    strokes: List[Dict[str, Any]] = Field(default_factory=list, description="画笔轨迹列表")
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "strokes": [
+                    {"type": "free", "color": "#ff0000", "width": 2, "points": [{"x": 10, "y": 20}, {"x": 30, "y": 40}]},
+                    {"type": "rect", "color": "#00ff00", "width": 3, "rect": {"x": 50, "y": 60, "width": 100, "height": 80}}
+                ]
             }
         }

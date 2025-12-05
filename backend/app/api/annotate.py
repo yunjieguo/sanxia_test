@@ -21,7 +21,8 @@ from ..schemas.annotation import (
     TemplateResponse,
     TemplateListResponse,
     ApplyTemplateRequest,
-    ApplyTemplateResponse
+    ApplyTemplateResponse,
+    PaintData
 )
 from ..config import settings
 
@@ -336,6 +337,8 @@ async def create_template(
     template_data = {
         "fields": [field.model_dump() for field in template.fields]
     }
+    if template.paint_data:
+        template_data["paint_data"] = template.paint_data
 
     # 创建模板记录
     db_template = Template(
@@ -431,6 +434,16 @@ async def update_template(
             "fields": [field.model_dump() if hasattr(field, 'model_dump') else field
                       for field in update_data["fields"]]
         }
+        if update_data.get("paint_data") is not None:
+            template_data["paint_data"] = update_data["paint_data"]
+        elif db_template.template_data:
+            # 维持已有的画笔数据
+            try:
+                existing = json.loads(db_template.template_data)
+                if existing.get("paint_data"):
+                    template_data["paint_data"] = existing.get("paint_data")
+            except Exception:
+                pass
         update_data["template_data"] = json.dumps(template_data, ensure_ascii=False)
         del update_data["fields"]
 
@@ -500,6 +513,7 @@ async def apply_template(
     # 基于模板字段生成标注占位（示例逻辑，可替换为真实提取）
     template_data = json.loads(template.template_data)
     fields = template_data.get("fields", [])
+    paint_data = template_data.get("paint_data")
 
     created_annotations = []
     base_x, base_y = 60, 60
@@ -538,6 +552,15 @@ async def apply_template(
     for ann in created_annotations:
         db.refresh(ann)
 
+    # 如果模板包含画笔数据，落盘到该文件
+    if paint_data:
+        paint_file = _get_paint_file_path(request.file_id)
+        try:
+            with open(paint_file, "w", encoding="utf-8") as f:
+                json.dump({"strokes": paint_data}, f, ensure_ascii=False)
+        except Exception as e:
+            print(f"保存画笔数据失败: {e}")
+
     extracted_data = [
         {
             "field_name": ann.field_name,
@@ -553,7 +576,8 @@ async def apply_template(
     return ApplyTemplateResponse(
         message=f"模板应用成功，新增 {len(extracted_data)} 条标注占位",
         extracted_data=extracted_data,
-        total_extracted=len(extracted_data)
+        total_extracted=len(extracted_data),
+        paint_data=paint_data or []
     )
 
 
@@ -562,6 +586,8 @@ async def apply_template(
 # 创建标注图片存储目录
 ANNOTATION_IMAGES_DIR = os.path.join(settings.UPLOAD_DIR, "annotation_images")
 os.makedirs(ANNOTATION_IMAGES_DIR, exist_ok=True)
+PAINT_DATA_DIR = os.path.join(settings.UPLOAD_DIR, "paint_data")
+os.makedirs(PAINT_DATA_DIR, exist_ok=True)
 
 
 def _safe_remove_image(image_path: str) -> None:
@@ -667,3 +693,34 @@ async def delete_annotation_image(filename: str):
         return {"message": "图片删除成功", "filename": filename}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"删除失败: {str(e)}")
+
+
+# ==================== 画笔数据接口 ====================
+
+
+def _get_paint_file_path(file_id: int) -> str:
+    return os.path.join(PAINT_DATA_DIR, f"{file_id}.json")
+
+
+@router.get("/paint/{file_id}", response_model=PaintData, summary="获取文件的画笔数据")
+async def get_paint_data(file_id: int):
+    file_path = _get_paint_file_path(file_id)
+    if not os.path.exists(file_path):
+        return PaintData(strokes=[])
+    try:
+        with open(file_path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        return PaintData(**data)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"读取画笔数据失败: {str(e)}")
+
+
+@router.post("/paint/{file_id}", response_model=PaintData, summary="保存文件的画笔数据")
+async def save_paint_data(file_id: int, payload: PaintData):
+    file_path = _get_paint_file_path(file_id)
+    try:
+        with open(file_path, "w", encoding="utf-8") as f:
+            json.dump(payload.model_dump(), f, ensure_ascii=False)
+        return payload
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"保存画笔数据失败: {str(e)}")
