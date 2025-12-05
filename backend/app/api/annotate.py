@@ -1,8 +1,11 @@
 """标注 API 路由"""
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File as FastAPIFile
+from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 from typing import List
 import json
+import os
+import uuid
 
 from ..database import get_db
 from ..models.annotation import Annotation, Template
@@ -20,6 +23,7 @@ from ..schemas.annotation import (
     ApplyTemplateRequest,
     ApplyTemplateResponse
 )
+from ..config import settings
 
 router = APIRouter(prefix="/api/annotations", tags=["标注管理"])
 template_router = APIRouter(prefix="/api/templates", tags=["模板管理"])
@@ -39,6 +43,7 @@ def _to_response(annotation: Annotation) -> AnnotationResponse:
         annotation_type=annotation.annotation_type,
         field_name=annotation.field_name,
         field_value=annotation.field_value,
+        image_path=annotation.image_path,
         coordinates=coordinates,
         created_at=annotation.created_at,
         updated_at=annotation.updated_at,
@@ -92,6 +97,7 @@ async def create_annotation(
         annotation_type=annotation.annotation_type,
         field_name=annotation.field_name,
         field_value=annotation.field_value,
+        image_path=annotation.image_path,
         coordinates=json.dumps(annotation.coordinates.model_dump())
     )
 
@@ -131,6 +137,7 @@ async def create_annotations_batch(
             annotation_type=ann_data["annotation_type"],
             field_name=ann_data["field_name"],
             field_value=ann_data.get("field_value"),
+            image_path=ann_data.get("image_path"),
             coordinates=json.dumps(ann_data["coordinates"])
         )
         db.add(db_annotation)
@@ -229,6 +236,10 @@ async def update_annotation(
     # 更新字段
     update_data = annotation_update.model_dump(exclude_unset=True)
 
+    # 若更新了图片路径，清理旧文件
+    if "image_path" in update_data and update_data["image_path"] != db_annotation.image_path:
+        _safe_remove_image(db_annotation.image_path)
+
     if "coordinates" in update_data and update_data["coordinates"]:
         update_data["coordinates"] = json.dumps(update_data["coordinates"])
 
@@ -260,6 +271,7 @@ async def delete_annotation(
     if not annotation:
         raise HTTPException(status_code=404, detail="标注不存在")
 
+    _safe_remove_image(annotation.image_path)
     db.delete(annotation)
     db.commit()
 
@@ -285,6 +297,11 @@ async def delete_file_annotations(
     file = db.query(File).filter(File.id == file_id).first()
     if not file:
         raise HTTPException(status_code=404, detail="文件不存在")
+
+    # 先清理图片文件
+    annotations = db.query(Annotation).filter(Annotation.file_id == file_id).all()
+    for ann in annotations:
+        _safe_remove_image(ann.image_path)
 
     # 删除所有标注
     deleted_count = db.query(Annotation).filter(Annotation.file_id == file_id).delete()
@@ -511,6 +528,7 @@ async def apply_template(
             annotation_type=field.get("field_type", "text"),
             field_name=field.get("field_name", f"field_{idx+1}"),
             field_value=field.get("field_value", ""),
+            image_path=field.get("image_path"),
             coordinates=json.dumps(coords)
         )
         db.add(ann)
@@ -537,3 +555,115 @@ async def apply_template(
         extracted_data=extracted_data,
         total_extracted=len(extracted_data)
     )
+
+
+# ==================== 图片标注相关接口 ====================
+
+# 创建标注图片存储目录
+ANNOTATION_IMAGES_DIR = os.path.join(settings.UPLOAD_DIR, "annotation_images")
+os.makedirs(ANNOTATION_IMAGES_DIR, exist_ok=True)
+
+
+def _safe_remove_image(image_path: str) -> None:
+    """删除标注图片文件，删除数据库记录前使用"""
+    if not image_path:
+        return
+
+    filename = os.path.basename(image_path)
+    file_path = os.path.join(ANNOTATION_IMAGES_DIR, filename)
+
+    try:
+        if (
+            os.path.exists(file_path)
+            and os.path.commonpath([ANNOTATION_IMAGES_DIR, os.path.abspath(file_path)]) == os.path.abspath(ANNOTATION_IMAGES_DIR)
+        ):
+            os.remove(file_path)
+    except Exception:
+        # 记录失败即可，避免阻塞主流程
+        pass
+
+
+@router.post("/upload-image", summary="上传标注图片")
+async def upload_annotation_image(
+    file: UploadFile = FastAPIFile(...),
+):
+    """
+    上传标注图片
+
+    Args:
+        file: 图片文件
+
+    Returns:
+        图片路径信息
+    """
+    # 验证文件类型
+    if not file.content_type or not file.content_type.startswith('image/'):
+        raise HTTPException(status_code=400, detail="只允许上传图片文件")
+
+    # 生成唯一文件名
+    file_ext = os.path.splitext(file.filename)[1].lower()
+    if file_ext not in ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp']:
+        raise HTTPException(status_code=400, detail="不支持的图片格式")
+
+    unique_filename = f"{uuid.uuid4().hex}{file_ext}"
+    file_path = os.path.join(ANNOTATION_IMAGES_DIR, unique_filename)
+
+    # 保存文件
+    try:
+        with open(file_path, "wb") as f:
+            content = await file.read()
+            f.write(content)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"文件保存失败: {str(e)}")
+
+    # 返回相对路径
+    relative_path = f"annotation_images/{unique_filename}"
+
+    return {
+        "message": "图片上传成功",
+        "image_path": relative_path,
+        "filename": file.filename,
+        "size": len(content)
+    }
+
+
+@router.get("/images/{filename}", summary="获取标注图片")
+async def get_annotation_image(filename: str):
+    """
+    获取标注图片
+
+    Args:
+        filename: 图片文件名
+
+    Returns:
+        图片文件
+    """
+    file_path = os.path.join(ANNOTATION_IMAGES_DIR, filename)
+
+    if not os.path.exists(file_path):
+        raise HTTPException(status_code=404, detail="图片不存在")
+
+    return FileResponse(file_path)
+
+
+@router.delete("/images/{filename}", summary="删除标注图片")
+async def delete_annotation_image(filename: str):
+    """
+    删除标注图片
+
+    Args:
+        filename: 图片文件名
+
+    Returns:
+        删除结果
+    """
+    file_path = os.path.join(ANNOTATION_IMAGES_DIR, filename)
+
+    if not os.path.exists(file_path):
+        raise HTTPException(status_code=404, detail="图片不存在")
+
+    try:
+        os.remove(file_path)
+        return {"message": "图片删除成功", "filename": filename}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"删除失败: {str(e)}")

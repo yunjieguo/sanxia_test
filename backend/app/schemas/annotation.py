@@ -32,6 +32,7 @@ class AnnotationCreate(BaseModel):
     annotation_type: str = Field(..., description="标注类型（text/long_text/image/table）")
     field_name: str = Field(..., description="字段名称")
     field_value: Optional[str] = Field(None, description="字段值")
+    image_path: Optional[str] = Field(None, description="图片路径（当标注类型为image时使用）")
     coordinates: CoordinatesSchema = Field(..., description="坐标信息")
 
     class Config:
@@ -58,6 +59,7 @@ class AnnotationUpdate(BaseModel):
     annotation_type: Optional[str] = Field(None, description="标注类型")
     field_name: Optional[str] = Field(None, description="字段名称")
     field_value: Optional[str] = Field(None, description="字段值")
+    image_path: Optional[str] = Field(None, description="图片路径")
     coordinates: Optional[CoordinatesSchema] = Field(None, description="坐标信息")
 
 
@@ -69,6 +71,7 @@ class AnnotationResponse(BaseModel):
     annotation_type: str
     field_name: str
     field_value: Optional[str] = None
+    image_path: Optional[str] = None
     coordinates: Dict[str, float]
     created_at: datetime
     updated_at: datetime
@@ -125,6 +128,7 @@ class FieldDefinition(BaseModel):
         None, description="默认坐标 {x,y,width,height}"
     )
     field_value: Optional[str] = Field(None, description="默认字段值")
+    image_path: Optional[str] = Field(None, description="图片字段的存储路径")
 
 
 class TemplateCreate(BaseModel):

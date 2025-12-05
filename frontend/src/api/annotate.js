@@ -172,3 +172,47 @@ export function applyTemplate(templateId, fileId) {
     data: { file_id: fileId }
   })
 }
+
+/**
+ * 上传标注图片
+ * @param {File} file 图片文件
+ * @returns {Promise}
+ */
+export function uploadAnnotationImage(file) {
+  const formData = new FormData()
+  formData.append('file', file)
+  return request({
+    url: '/annotations/upload-image',
+    method: 'post',
+    data: formData,
+    headers: {
+      'Content-Type': 'multipart/form-data'
+    }
+  })
+}
+
+/**
+ * 获取标注图片URL
+ * @param {string} imagePath 图片路径
+ * @returns {string} 完整的图片URL
+ */
+export function getAnnotationImageUrl(imagePath) {
+  if (!imagePath) return ''
+  // 从 annotation_images/xxx.jpg 中提取文件名
+  const filename = imagePath.split('/').pop()
+  return `${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'}/api/annotations/images/${filename}`
+}
+
+/**
+ * 删除标注图片
+ * @param {string} imagePath 图片路径
+ * @returns {Promise}
+ */
+export function deleteAnnotationImage(imagePath) {
+  if (!imagePath) return Promise.resolve()
+  const filename = imagePath.split('/').pop()
+  return request({
+    url: `/annotations/images/${filename}`,
+    method: 'delete'
+  })
+}

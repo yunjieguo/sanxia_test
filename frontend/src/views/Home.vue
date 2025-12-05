@@ -24,7 +24,7 @@
     <div class="tool-section">
       <div class="section-header">
         <el-icon :size="24" color="#67c23a"><Edit /></el-icon>
-        <h2>PDF 文档标注</h2>
+        <h2>PDF 操作</h2>
       </div>
 
       <el-row :gutter="20">
@@ -92,13 +92,13 @@ const convertTools = [
 ]
 
 const editTools = [
-  // {
-  //   name: 'PDF 编辑',
-  //   description: '编辑 PDF 文档内容',
-  //   icon: EditPen,
-  //   color: '#409eff',
-  //   path: '/edit/editor'
-  // },
+  {
+    name: 'PDF 编辑',
+    description: '编辑 PDF 文档内容',
+    icon: EditPen,
+    color: '#409eff',
+    path: '/edit/editor'
+  },
   {
     name: '文档标注',
     description: 'AI 辅助标注与信息提取',

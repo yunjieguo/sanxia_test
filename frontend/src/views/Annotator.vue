@@ -109,15 +109,19 @@
               <el-form label-width="80px">
                 <el-form-item label="标注类型">
                   <el-select v-model="currentTool.type" placeholder="选择标注类型">
-                    <el-option label="短文本" value="text" />
-                    <el-option label="长文本" value="long_text" />
+                    <el-option label="文本" value="text" />
+                    <!-- <el-option label="长文本" value="long_text" /> -->
                     <el-option label="图片" value="image" />
                     <el-option label="表格" value="table" />
                   </el-select>
                 </el-form-item>
 
                 <el-form-item label="字段名称">
+                  <template v-if="currentTool.type === 'image'">
+                    <el-input value="图片" disabled />
+                  </template>
                   <el-select
+                    v-else
                     v-model="currentTool.fieldName"
                     placeholder="选择或输入字段名"
                     allow-create
@@ -132,7 +136,7 @@
                   </el-select>
                 </el-form-item>
 
-                <el-form-item label="字段值">
+                <el-form-item label="字段值" v-if="currentTool.type !== 'image'">
                   <el-input
                     v-model="currentTool.fieldValue"
                     placeholder="可选，提取后自动填充"
@@ -141,7 +145,32 @@
                   />
                 </el-form-item>
 
-                <el-form-item label="文字大小">
+                <!-- 图片上传组件（当标注类型为图片时显示） -->
+                <el-form-item label="上传图片" v-if="currentTool.type === 'image'">
+                  <el-upload
+                    class="image-uploader"
+                    :auto-upload="false"
+                    :show-file-list="false"
+                    :on-change="handleImageChange"
+                    accept="image/*"
+                  >
+                    <img v-if="currentTool.imagePreview" :src="currentTool.imagePreview" class="uploaded-image" />
+                    <el-icon v-else class="image-uploader-icon"><Plus /></el-icon>
+                  </el-upload>
+                  <div class="upload-tip">点击上传图片（支持 JPG、PNG 等格式）</div>
+                  <el-button
+                    v-if="currentTool.imageFile"
+                    size="small"
+                    type="danger"
+                    text
+                    @click="clearUploadedImage"
+                    style="margin-top: 8px"
+                  >
+                    清除图片
+                  </el-button>
+                </el-form-item>
+
+                <el-form-item label="文字大小" v-if="currentTool.type !== 'image'">
                   <el-slider
                     v-model="currentTool.fontSize"
                     :min="8"
@@ -233,6 +262,10 @@
                   </div>
                   <div class="annotation-value" v-if="annotation.field_value">
                     {{ annotation.field_value }}
+                  </div>
+                  <!-- 显示图片缩略图 -->
+                  <div class="annotation-image" v-if="annotation.annotation_type === 'image' && annotation.image_path">
+                    <img :src="getAnnotationImageUrl(annotation.image_path)" alt="标注图片" class="annotation-thumbnail" />
                   </div>
                   <div class="annotation-coords">
                     页码: {{ annotation.page_number }} |
@@ -341,11 +374,18 @@
               {{ getFieldTypeName(row.field_type) }}
             </template>
           </el-table-column>
-          <el-table-column label="字段值" min-width="220">
-            <template #default="{ row }">
+        <el-table-column label="字段值" min-width="220">
+          <template #default="{ row }">
+            <template v-if="row.field_type === 'image' && (row.image_path || row.field_value)">
+              <div class="template-image" @click="openTemplateImage(row.image_path || row.field_value)">
+                <img :src="getAnnotationImageUrl(row.image_path || row.field_value)" alt="模板图片" />
+              </div>
+            </template>
+            <template v-else>
               {{ row.field_value || '—' }}
             </template>
-          </el-table-column>
+          </template>
+        </el-table-column>
           <el-table-column label="字体大小" width="90">
             <template #default="{ row }">
               {{ (row.coordinates?.font_size || row.coordinates?.fontSize || 12) }}px
@@ -371,6 +411,19 @@
         <el-button @click="showTemplatePreviewDialog = false">关闭</el-button>
       </template>
     </el-dialog>
+
+    <!-- 模板图片大图预览 -->
+    <el-dialog
+      v-model="showTemplateImageDialog"
+      width="60vw"
+      top="6vh"
+      :show-close="true"
+      destroy-on-close
+    >
+      <div class="template-image-large" v-if="templateImagePreviewUrl">
+        <img :src="templateImagePreviewUrl" alt="模板图片预览" />
+      </div>
+    </el-dialog>
   </div>
 </template>
 
@@ -394,7 +447,10 @@ import {
   createTemplate,
   deleteTemplate,
   applyTemplate,
-  updateAnnotation
+  updateAnnotation,
+  uploadAnnotationImage,
+  getAnnotationImageUrl,
+  deleteAnnotationImage
 } from '../api/annotate'
 import { getConversionDownloadUrl } from '../api/convert'
 
@@ -421,6 +477,7 @@ const isDrawing = ref(false)
 const drawMode = ref(false)
 const startPoint = ref({ x: 0, y: 0 })
 const currentRect = ref(null)
+const imageCache = new Map()
 
 // 标注数据
 const annotations = ref([])
@@ -429,7 +486,10 @@ const currentTool = ref({
   type: 'text',
   fieldName: '',
   fieldValue: '',
-  fontSize: 12
+  fontSize: 12,
+  imageFile: null,
+  imagePreview: null,
+  imagePath: null
 })
 
 // UI 状态
@@ -465,7 +525,9 @@ const pageAnnotations = computed(() => {
 })
 
 const canAnnotate = computed(() => {
-  return currentTool.value.type && currentTool.value.fieldName
+  if (!currentTool.value.type) return false
+  if (currentTool.value.type === 'image') return true
+  return !!currentTool.value.fieldName
 })
 
 // 生命周期
@@ -493,6 +555,23 @@ watch(currentPage, () => {
 watch(scale, () => {
   nextTick(setupCanvas)
 })
+
+// 切换标注类型时的默认值处理
+watch(
+  () => currentTool.value.type,
+  (newType, oldType) => {
+    if (newType === 'image') {
+      currentTool.value.fieldName = 'image'
+      currentTool.value.fieldValue = ''
+      currentTool.value.fontSize = 12
+    } else if (oldType === 'image') {
+      currentTool.value.imageFile = null
+      currentTool.value.imagePreview = null
+      currentTool.value.imagePath = null
+      currentTool.value.fieldName = ''
+    }
+  }
+)
 
 // 加载文件列表
 const loadFileList = async () => {
@@ -684,8 +763,42 @@ const drawing = (e) => {
 }
 
 // 停止绘制
-const stopDrawing = () => {
+const stopDrawing = async () => {
   if (!isDrawing.value || !drawMode.value || !currentRect.value) return
+
+  // 如果是图片标注，先确保有图片并上传/复用路径
+  let imagePath = null
+  if (currentTool.value.type === 'image') {
+    if (currentTool.value.imageFile) {
+      try {
+        const uploadResult = await uploadAnnotationImage(currentTool.value.imageFile)
+        imagePath = uploadResult.image_path
+        // 释放旧的本地预览，切换为后端可访问地址
+        if (currentTool.value.imagePreview?.startsWith('blob:')) {
+          URL.revokeObjectURL(currentTool.value.imagePreview)
+        }
+        currentTool.value.imagePreview = getAnnotationImageUrl(imagePath)
+        currentTool.value.imagePath = imagePath
+        ElMessage.success('图片上传成功')
+      } catch (error) {
+        ElMessage.error('图片上传失败: ' + (error.message || '未知错误'))
+        isDrawing.value = false
+        drawMode.value = false
+        currentRect.value = null
+        redrawAnnotations()
+        return
+      }
+    } else if (currentTool.value.imagePath) {
+      imagePath = currentTool.value.imagePath
+    } else {
+      ElMessage.warning('请先上传标注图片')
+      isDrawing.value = false
+      drawMode.value = false
+      currentRect.value = null
+      redrawAnnotations()
+      return
+    }
+  }
 
   // 创建标注
   const annotation = {
@@ -693,6 +806,7 @@ const stopDrawing = () => {
     annotation_type: currentTool.value.type,
     field_name: currentTool.value.fieldName,
     field_value: currentTool.value.fieldValue || '',
+    image_path: imagePath,
     coordinates: { ...currentRect.value, font_size: currentTool.value.fontSize }
   }
 
@@ -703,6 +817,12 @@ const stopDrawing = () => {
   isDrawing.value = false
   drawMode.value = false
   currentRect.value = null
+
+  // 清理文件选择，但保留可复用的线上预览
+  if (currentTool.value.type === 'image') {
+    currentTool.value.imageFile = null
+  }
+
   redrawAnnotations()
 }
 
@@ -762,6 +882,34 @@ const redrawAnnotations = () => {
       ctx.font = `${fontSize}px Arial`
       ctx.fillText(value, textX, valueY)
     }
+
+    // 如果是图片标注，在选框内绘制图片
+    if (annotation.annotation_type === 'image' && annotation.image_path) {
+      const url = getAnnotationImageUrl(annotation.image_path)
+      const drawImageToCanvas = (img) => {
+        const targetW = coords.width
+        const targetH = coords.height
+        const ratio = Math.min(targetW / img.width, targetH / img.height)
+        const drawW = img.width * ratio
+        const drawH = img.height * ratio
+        const offsetX = coords.x + (targetW - drawW) / 2
+        const offsetY = coords.y + (targetH - drawH) / 2
+        const currentCtx = canvasContext.value
+        if (!currentCtx) return
+        currentCtx.drawImage(img, offsetX, offsetY, drawW, drawH)
+      }
+
+      const cached = imageCache.get(url)
+      if (cached) {
+        drawImageToCanvas(cached)
+      } else {
+        loadImage(url)
+          .then(() => redrawAnnotations())
+          .catch(() => {
+            /* ignore load error */
+          })
+      }
+    }
   })
 }
 
@@ -779,8 +927,8 @@ const getAnnotationColor = (type) => {
 // 获取标注类型名称
 const getAnnotationTypeName = (type) => {
   const names = {
-    text: '短文本',
-    long_text: '长文本',
+    text: '文本',
+    // long_text: '长文本',
     image: '图片',
     table: '表格'
   }
@@ -790,7 +938,7 @@ const getAnnotationTypeName = (type) => {
 // 模板字段类型中文
 const getFieldTypeName = (type) => {
   const names = {
-    text: '短文本',
+    text: '文本',
     long_text: '长文本',
     image: '图片',
     table: '表格'
@@ -806,7 +954,8 @@ const getFieldNameCN = (fieldName) => {
     contract_number: '合同编号',
     contract_amount: '合同金额',
     party_a: '甲方名称',
-    party_b: '乙方名称'
+    party_b: '乙方名称',
+    image: '图片'
   }
   return map[fieldName] || fieldName || '-'
 }
@@ -822,6 +971,22 @@ const getAnnotationTypeColor = (type) => {
   return colors[type] || 'info'
 }
 
+// 加载图片并缓存，避免重复请求
+const loadImage = (url) => {
+  if (imageCache.has(url)) {
+    return Promise.resolve(imageCache.get(url))
+  }
+  return new Promise((resolve, reject) => {
+    const img = new Image()
+    img.onload = () => {
+      imageCache.set(url, img)
+      resolve(img)
+    }
+    img.onerror = reject
+    img.src = url
+  })
+}
+
 // 选择标注
 const selectAnnotation = (annotation) => {
   selectedAnnotation.value = annotation
@@ -829,6 +994,15 @@ const selectAnnotation = (annotation) => {
   currentTool.value.fieldValue = annotation.field_value || ''
   currentTool.value.type = annotation.annotation_type
   currentTool.value.fontSize = annotation.coordinates?.font_size || annotation.coordinates?.fontSize || 12
+  if (annotation.annotation_type === 'image') {
+    currentTool.value.imagePath = annotation.image_path || null
+    currentTool.value.imageFile = null
+    currentTool.value.imagePreview = annotation.image_path ? getAnnotationImageUrl(annotation.image_path) : null
+  } else {
+    currentTool.value.imagePath = null
+    currentTool.value.imageFile = null
+    currentTool.value.imagePreview = null
+  }
   redrawAnnotations()
 }
 
@@ -873,12 +1047,40 @@ const updateSelectedAnnotation = async () => {
   }
 
   try {
+    let imagePath = currentTool.value.type === 'image'
+      ? (currentTool.value.imagePath || selectedAnnotation.value.image_path || null)
+      : null
+
+    // 处理图片替换或新增
+    if (currentTool.value.type === 'image') {
+      if (currentTool.value.imageFile) {
+        const uploadResult = await uploadAnnotationImage(currentTool.value.imageFile)
+        imagePath = uploadResult.image_path
+        if (currentTool.value.imagePreview?.startsWith('blob:')) {
+          URL.revokeObjectURL(currentTool.value.imagePreview)
+        }
+        currentTool.value.imagePreview = getAnnotationImageUrl(imagePath)
+        currentTool.value.imagePath = imagePath
+        ElMessage.success('标注图片已更新')
+      } else if (!imagePath) {
+        ElMessage.warning('请先上传标注图片')
+        return
+      }
+    } else {
+      // 切换到非图片类型时清空图片数据
+      imagePath = null
+      currentTool.value.imageFile = null
+      currentTool.value.imagePreview = null
+      currentTool.value.imagePath = null
+    }
+
     const payload = {
       file_id: selectedFileId.value,
       page_number: selectedAnnotation.value.page_number || currentPage.value,
       annotation_type: currentTool.value.type,
       field_name: currentTool.value.fieldName,
       field_value: currentTool.value.fieldValue,
+      image_path: imagePath,
       coordinates: {
         ...(selectedAnnotation.value.coordinates || currentRect.value || {}),
         font_size: currentTool.value.fontSize
@@ -896,6 +1098,7 @@ const updateSelectedAnnotation = async () => {
     const updated = {
       ...selectedAnnotation.value,
       ...resp,
+      image_path: resp?.image_path ?? imagePath,
       coordinates: resp.coordinates || payload.coordinates
     }
     selectedAnnotation.value = updated
@@ -1057,6 +1260,7 @@ const createNewTemplate = async () => {
       required: false,
       description: '',
       field_value: ann.field_value || '',
+      image_path: ann.image_path || null,
       page_number: ann.page_number || 1,
       coordinates: ann.coordinates || null
     }))
@@ -1125,14 +1329,60 @@ const applyTemplateToFile = async (templateId) => {
 }
 
 // 查看模板详情
+const showTemplateImageDialog = ref(false)
+const templateImagePreviewUrl = ref('')
+
 const viewTemplate = (template) => {
   previewTemplate.value = template
   showTemplatePreviewDialog.value = true
 }
 
+const openTemplateImage = (path) => {
+  if (!path) return
+  const url = getAnnotationImageUrl(path)
+  templateImagePreviewUrl.value = url
+  showTemplateImageDialog.value = true
+}
+
 // 跳转到转换页面
 const goToConvert = () => {
   router.push('/')
+}
+
+// 处理图片选择
+const handleImageChange = (file) => {
+  const rawFile = file.raw
+  if (!rawFile) return
+
+  // 验证文件类型
+  const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/bmp', 'image/webp']
+  if (!validTypes.includes(rawFile.type)) {
+    ElMessage.error('只支持 JPG、PNG、GIF、BMP、WEBP 格式的图片')
+    return
+  }
+
+  // 验证文件大小（5MB）
+  const maxSize = 5 * 1024 * 1024
+  if (rawFile.size > maxSize) {
+    ElMessage.error('图片大小不能超过 5MB')
+    return
+  }
+
+  // 保存文件和预览
+  currentTool.value.imageFile = rawFile
+  currentTool.value.imagePreview = URL.createObjectURL(rawFile)
+  // 选择了新图片，清空旧的远程路径，等待重新上传
+  currentTool.value.imagePath = null
+}
+
+// 清除上传的图片
+const clearUploadedImage = () => {
+  if (currentTool.value.imagePreview && currentTool.value.imagePreview.startsWith('blob:')) {
+    URL.revokeObjectURL(currentTool.value.imagePreview)
+  }
+  currentTool.value.imageFile = null
+  currentTool.value.imagePreview = null
+  currentTool.value.imagePath = null
 }
 </script>
 
@@ -1302,6 +1552,25 @@ const goToConvert = () => {
   color: #999;
 }
 
+.annotation-image {
+  width: 120px;
+  height: 80px;
+  border: 1px solid #ebeef5;
+  border-radius: 4px;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #fafafa;
+  margin-top: 6px;
+}
+
+.annotation-thumbnail {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
 .templates-panel {
   padding: 10px 0;
 }
@@ -1337,6 +1606,40 @@ const goToConvert = () => {
   color: #666;
 }
 
+.template-image {
+  width: 140px;
+  height: 100px;
+  border: 1px solid #ebeef5;
+  border-radius: 4px;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #fafafa;
+  cursor: pointer;
+}
+
+.template-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.template-image-large {
+  width: 100%;
+  height: 70vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #000;
+}
+
+.template-image-large img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+
 .empty-state {
   flex: 1;
   display: flex;
@@ -1346,5 +1649,41 @@ const goToConvert = () => {
 
 .empty-annotations {
   padding: 40px 0;
+}
+
+/* 图片上传组件样式 */
+.image-uploader {
+  border: 1px dashed #d9d9d9;
+  border-radius: 6px;
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+  width: 178px;
+  height: 178px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: border-color 0.3s;
+}
+
+.image-uploader:hover {
+  border-color: #409EFF;
+}
+
+.image-uploader-icon {
+  font-size: 28px;
+  color: #8c939d;
+}
+
+.uploaded-image {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.upload-tip {
+  font-size: 12px;
+  color: #999;
+  margin-top: 8px;
 }
 </style>

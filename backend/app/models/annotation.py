@@ -15,6 +15,7 @@ class Annotation(Base):
     annotation_type = Column(String(50), nullable=False, comment="标注类型（text/long_text/image/table）")
     field_name = Column(String(100), nullable=False, comment="字段名称（name/date/number/amount等）")
     field_value = Column(Text, nullable=True, comment="字段值（可选）")
+    image_path = Column(String(500), nullable=True, comment="图片路径（当标注类型为image时使用）")
     coordinates = Column(Text, nullable=False, comment="坐标信息（JSON格式：{x, y, width, height}）")
     created_at = Column(DateTime, default=datetime.now, comment="创建时间")
     updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now, comment="更新时间")
@@ -35,6 +36,7 @@ class Annotation(Base):
             "annotation_type": self.annotation_type,
             "field_name": self.field_name,
             "field_value": self.field_value,
+            "image_path": self.image_path,
             "coordinates": json.loads(self.coordinates) if self.coordinates else None,
             "created_at": self.created_at.isoformat() if self.created_at else None,
             "updated_at": self.updated_at.isoformat() if self.updated_at else None,
