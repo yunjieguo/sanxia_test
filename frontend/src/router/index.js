@@ -32,12 +32,6 @@ const routes = [
     name: 'ConvertOfd',
     component: () => import('../views/ConvertOfd.vue')
   },
-  // PDF编辑工具
-  {
-    path: '/edit/editor',
-    name: 'PdfEditor',
-    component: () => import('../views/Editor.vue')
-  },
   {
     path: '/edit/annotator',
     name: 'Annotator',

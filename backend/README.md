@@ -5,7 +5,7 @@
 ## 功能模块
 
 - 📄 文档转换：支持多种格式转 PDF
-- ✏️ PDF 编辑：文本编辑、表单编辑、注释批注、页面管理
+- ✏️ ：文本编辑、表单编辑、注释批注、页面管理
 - 🏷️ 文档标注：可视化标注和信息自动抽取
 
 ## 技术栈
@@ -77,7 +77,7 @@ backend/
 - `POST /api/convert/to-pdf` - 转换为 PDF
 - `GET /api/convert/status/{task_id}` - 查询转换状态
 
-### PDF 编辑
+### 
 - `POST /api/edit/text` - 编辑文本
 - `POST /api/edit/form` - 编辑表单
 - `POST /api/edit/annotation` - 添加注释

@@ -20,21 +20,21 @@
       </el-row>
     </div>
 
-    <!-- PDF 编辑工具 -->
+    <!-- 文档标注 -->
     <div class="tool-section">
       <div class="section-header">
-        <el-icon :size="24" color="#67c23a"><Edit /></el-icon>
-        <h2>PDF 操作</h2>
+        <el-icon :size="24" color="#e6a23c"><PriceTag /></el-icon>
+        <h2>文档标注</h2>
       </div>
 
       <el-row :gutter="20">
-        <el-col :xs="24" :sm="12" :md="6" v-for="tool in editTools" :key="tool.name">
-          <el-card class="tool-card" shadow="hover" @click="goTo(tool.path)">
-            <div class="tool-icon" :style="{ color: tool.color }">
-              <component :is="tool.icon" :size="28" style="width: 40%" />
+        <el-col :xs="24" :sm="12" :md="6">
+          <el-card class="tool-card" shadow="hover" @click="goTo('/edit/annotator')">
+            <div class="tool-icon" style="color: #e6a23c">
+              <PriceTag :size="28" style="width: 40%" />
             </div>
-            <h3>{{ tool.name }}</h3>
-            <p>{{ tool.description }}</p>
+            <h3>文档标注</h3>
+            <p>AI 辅助标注与信息提取</p>
           </el-card>
         </el-col>
       </el-row>
@@ -46,16 +46,7 @@
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import axios from 'axios'
-import {
-  Refresh,
-  Edit,
-  DocumentCopy,
-  Picture,
-  FolderOpened,
-  Document,
-  EditPen,
-  PriceTag
-} from '@element-plus/icons-vue'
+import { Refresh, DocumentCopy, Picture, FolderOpened, Document, PriceTag } from '@element-plus/icons-vue'
 
 const router = useRouter()
 const backendStatus = ref(false)
@@ -88,23 +79,6 @@ const convertTools = [
     icon: Document,
     color: '#f56c6c',
     path: '/convert/ofd'
-  }
-]
-
-const editTools = [
-  {
-    name: 'PDF 编辑',
-    description: '编辑 PDF 文档内容',
-    icon: EditPen,
-    color: '#409eff',
-    path: '/edit/editor'
-  },
-  {
-    name: '文档标注',
-    description: 'AI 辅助标注与信息提取',
-    icon: PriceTag,
-    color: '#e6a23c',
-    path: '/edit/annotator'
   }
 ]
 
