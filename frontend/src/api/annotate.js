@@ -196,11 +196,24 @@ export function uploadAnnotationImage(file) {
  * @param {string} imagePath 图片路径
  * @returns {string} 完整的图片URL
  */
+const getApiBaseUrl = () => {
+  const envBase = import.meta.env.VITE_API_BASE_URL
+  if (envBase) return envBase.replace(/\/+$/, '')
+
+  if (typeof window !== 'undefined') {
+    const { protocol, hostname, port } = window.location
+    const portPart = port ? `:${port}` : ''
+    return `${protocol}//${hostname}${portPart}`
+  }
+
+  return ''
+}
+
 export function getAnnotationImageUrl(imagePath) {
   if (!imagePath) return ''
   // 从 annotation_images/xxx.jpg 中提取文件名
   const filename = imagePath.split('/').pop()
-  return `${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'}/api/annotations/images/${filename}`
+  return `${getApiBaseUrl()}/api/annotations/images/${filename}`
 }
 
 /**

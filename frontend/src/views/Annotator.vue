@@ -669,6 +669,7 @@ const scale = ref(1.0)
 
 // 标注画布
 const annotationCanvas = ref(null)
+const canvasDpr = ref(1)
 const canvasContext = ref(null)
 const isDrawing = ref(false)
 const drawMode = ref(false)
@@ -685,6 +686,16 @@ const paintColor = ref('#f56c6c')
 const paintWidth = ref(2)
 const paintHistory = ref([]) // {type,color,width,points?,rect?,page_number}
 const tempPaint = ref(null)
+
+const getCanvasPoint = (clientX, clientY) => {
+  const canvas = annotationCanvas.value
+  if (!canvas) return { x: 0, y: 0 }
+  const rect = canvas.getBoundingClientRect()
+  return {
+    x: (clientX - rect.left) / scale.value,
+    y: (clientY - rect.top) / scale.value
+  }
+}
 
 // 标注数据
 const annotations = ref([])
@@ -881,14 +892,21 @@ const setupCanvas = () => {
   const pdfElement = pdfEmbed.value?.$el?.querySelector('canvas')
 
   if (canvas && pdfElement) {
+    const dpr = window.devicePixelRatio || 1
     const extraHeight = 90
-    const displayWidth = pdfElement.offsetWidth
-    const displayHeight = pdfElement.offsetHeight
-    canvas.width = displayWidth
-    canvas.height = displayHeight + extraHeight
+    // 使用 scroll 尺寸，确保画布覆盖滚动后区域
+    const displayWidth = pdfElement.scrollWidth || pdfElement.offsetWidth
+    const displayHeight = pdfElement.scrollHeight || pdfElement.offsetHeight
+    canvasDpr.value = dpr
+    canvas.width = displayWidth * dpr
+    canvas.height = (displayHeight + extraHeight) * dpr
     canvas.style.width = `${displayWidth}px`
     canvas.style.height = `${displayHeight + extraHeight}px`
-    canvasContext.value = canvas.getContext('2d')
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return
+    ctx.setTransform(1, 0, 0, 1, 0, 0)
+    ctx.scale(dpr, dpr)
+    canvasContext.value = ctx
     redrawAnnotations()
   }
 }
@@ -985,11 +1003,7 @@ const startDrawing = (e) => {
   const canvas = annotationCanvas.value
   if (!canvas) return
 
-  const rect = canvas.getBoundingClientRect()
-  const point = {
-    x: (e.clientX - rect.left) / scale.value,
-    y: (e.clientY - rect.top) / scale.value
-  }
+  const point = getCanvasPoint(e.clientX, e.clientY)
 
   // 移动模式：未开启绘制时，允许拖动已有标注
   if (!drawMode.value && !paintingMode.value) {
@@ -1056,9 +1070,9 @@ const startDrawing = (e) => {
 // 绘制中
 const drawing = (e) => {
   const canvas = annotationCanvas.value
-  const rect = canvas.getBoundingClientRect()
-  const currentX = (e.clientX - rect.left) / scale.value
-  const currentY = (e.clientY - rect.top) / scale.value
+  const point = getCanvasPoint(e.clientX, e.clientY)
+  const currentX = point.x
+  const currentY = point.y
 
   // hover 状态下提示可拖动
   if (!drawMode.value && !isMoving.value && !paintingMode.value) {
@@ -1250,7 +1264,10 @@ const redrawAnnotations = () => {
   if (!canvas || !ctx) return
 
   // 清空画布
+  const dpr = canvasDpr.value || 1
+  ctx.setTransform(1, 0, 0, 1, 0, 0)
   ctx.clearRect(0, 0, canvas.width, canvas.height)
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
 
   // 绘制画笔
   drawPaintStrokes(ctx)
