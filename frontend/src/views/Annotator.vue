@@ -679,6 +679,15 @@ const moveOffset = ref({ x: 0, y: 0 })
 const startPoint = ref({ x: 0, y: 0 })
 const currentRect = ref(null)
 const imageCache = new Map()
+const redrawPending = ref(false)
+const scheduleRedraw = () => {
+  if (redrawPending.value) return
+  redrawPending.value = true
+  requestAnimationFrame(() => {
+    redrawPending.value = false
+    redrawAnnotations()
+  })
+}
 // 画笔工具
 const paintingMode = ref(false)
 const paintTool = ref('free') // free | line | rect | eraser
@@ -893,10 +902,10 @@ const setupCanvas = () => {
 
   if (canvas && pdfElement) {
     const dpr = window.devicePixelRatio || 1
-    const extraHeight = 90
-    // 使用 scroll 尺寸，确保画布覆盖滚动后区域
-    const displayWidth = pdfElement.scrollWidth || pdfElement.offsetWidth
-    const displayHeight = pdfElement.scrollHeight || pdfElement.offsetHeight
+    const extraHeight = 0
+    const rect = pdfElement.getBoundingClientRect()
+    const displayWidth = rect.width || pdfElement.offsetWidth || pdfElement.clientWidth || 0
+    const displayHeight = rect.height || pdfElement.offsetHeight || pdfElement.clientHeight || 0
     canvasDpr.value = dpr
     canvas.width = displayWidth * dpr
     canvas.height = (displayHeight + extraHeight) * dpr
@@ -1094,7 +1103,7 @@ const drawing = (e) => {
         height: currentY - r.y
       }
     }
-    redrawAnnotations()
+    scheduleRedraw()
     return
   }
 
@@ -1108,7 +1117,7 @@ const drawing = (e) => {
       y: currentY - moveOffset.value.y
     }
     ann.coordinates = newCoords
-    redrawAnnotations()
+    scheduleRedraw()
     return
   }
 
@@ -1121,7 +1130,7 @@ const drawing = (e) => {
     height: Math.abs(currentY - startPoint.value.y)
   }
 
-  redrawAnnotations()
+  scheduleRedraw()
   drawCurrentRect()
 }
 
