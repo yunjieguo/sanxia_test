@@ -134,6 +134,14 @@ class FieldDefinition(BaseModel):
     )
     field_value: Optional[str] = Field(None, description="默认字段值")
     image_path: Optional[str] = Field(None, description="图片字段的存储路径")
+    keywords: Optional[List[str]] = Field(None, description="关键词/锚点词（支持多个备选）")
+    page_hint: Optional[int] = Field(None, ge=1, description="优先匹配的页码提示")
+    anchor_offset: Optional[Dict[str, float]] = Field(None, description="锚点到目标框左上角的偏移量 {x,y}")
+    context_before: Optional[str] = Field(None, description="锚点前的上下文片段，用于模糊匹配")
+    context_after: Optional[str] = Field(None, description="锚点后的上下文片段，用于模糊匹配")
+    confidence_threshold: Optional[float] = Field(None, ge=0.0, le=1.0, description="低于该置信度标记为低可信")
+    table_meta: Optional[Dict[str, Any]] = Field(None, description="表格元数据 {rows, cols, headers[]}")
+    long_text: Optional[Dict[str, Any]] = Field(None, description="长文本配置 {max_lines,end_keywords[]}")
 
 
 class TemplateCreate(BaseModel):
@@ -221,6 +229,7 @@ class ApplyTemplateResponse(BaseModel):
     extracted_data: List[Dict[str, Any]]
     total_extracted: int
     paint_data: Optional[List[Dict[str, Any]]] = Field(None, description="画笔数据")
+    match_details: Optional[List[Dict[str, Any]]] = Field(None, description="匹配说明（字段、策略、置信度等）")
 
     class Config:
         json_schema_extra = {

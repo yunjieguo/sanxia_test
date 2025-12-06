@@ -306,6 +306,14 @@
                       {{ getAnnotationTypeName(annotation.annotation_type) }}
                     </el-tag>
                     <span class="field-name">{{ getFieldNameCN(annotation.field_name) }}</span>
+                    <el-tag
+                      v-if="getAnnotationConfidence(annotation) !== null"
+                      :type="getConfidenceTagType(getAnnotationConfidence(annotation))"
+                      size="small"
+                      style="margin-left: 6px;"
+                    >
+                      {{ Math.round(getAnnotationConfidence(annotation) * 100) }}%
+                    </el-tag>
                     <el-tag size="small" type="info" style="margin-left: 6px;">
                       {{ (annotation.coordinates?.font_size || 12) }}px
                     </el-tag>
@@ -384,6 +392,29 @@
                 <el-icon><Plus /></el-icon>
                 创建模板
               </el-button>
+              <el-card v-if="matchDetailVisible && matchDetails.length" class="match-detail-card" shadow="never">
+                <div class="match-detail-header">
+                  <span>最近一次一键抽取结果</span>
+                  <el-button link type="info" size="small" @click="matchDetailVisible = false">收起</el-button>
+                </div>
+                <el-table :data="matchDetails" size="small" border>
+                  <el-table-column label="字段" prop="field_name" width="140" />
+                  <el-table-column label="页码" prop="page_number" width="70" />
+                  <el-table-column label="策略" prop="strategy" width="160" />
+                  <el-table-column label="置信度" width="120">
+                    <template #default="{ row }">
+                      <el-tag :type="getConfidenceTagType(row.confidence)" size="small">
+                        {{ row.confidence !== undefined && row.confidence !== null ? (row.confidence * 100).toFixed(0) + '%' : '—' }}
+                      </el-tag>
+                    </template>
+                  </el-table-column>
+                  <el-table-column label="说明">
+                    <template #default="{ row }">
+                      {{ row.note || '-' }}
+                    </template>
+                  </el-table-column>
+                </el-table>
+              </el-card>
               <div v-if="templates.length === 0">
                 <el-empty description="暂无模板" />
               </div>
@@ -399,8 +430,11 @@
                       <el-button size="small" @click="viewTemplate(template)" style="margin-right: 6px">
                         查看
                       </el-button>
-                      <el-button size="small" @click="applyTemplateToFile(template.id)">
+                      <el-button size="small" @click="applyTemplateToFile(template.id)" style="margin-right: 6px">
                         应用
+                      </el-button>
+                      <el-button type="success" size="small" @click="applyTemplateMatchingToFile(template.id)">
+                        一键抽取
                       </el-button>
                       <el-button type="danger" size="small" text @click="deleteTemplateById(template.id)">
                         <el-icon><Delete /></el-icon>
@@ -642,6 +676,7 @@ import {
   createTemplate,
   deleteTemplate,
   applyTemplate,
+  applyTemplateMatching,
   updateAnnotation,
   uploadAnnotationImage,
   getAnnotationImageUrl,
@@ -735,6 +770,8 @@ const newTemplate = ref({
   document_type: '',
   description: ''
 })
+const matchDetails = ref([])
+const matchDetailVisible = ref(false)
 
 // 计算属性
 const pdfFiles = computed(() => {
@@ -760,6 +797,21 @@ const pagePaintStrokes = computed(() => {
 const totalAnnotationCount = computed(() => {
   return (annotations.value?.length || 0) + (paintHistory.value?.length || 0)
 })
+
+const getConfidenceTagType = (conf) => {
+  if (conf === undefined || conf === null) return 'info'
+  if (conf >= 0.8) return 'success'
+  if (conf >= 0.5) return 'warning'
+  return 'danger'
+}
+
+const getAnnotationConfidence = (annotation) => {
+  if (!annotation) return null
+  const detail = matchDetails.value.find(
+    d => d.field_name === annotation.field_name && (!d.page_number || d.page_number === annotation.page_number)
+  )
+  return detail?.confidence ?? null
+}
 
 const getStrokeBounds = (stroke) => {
   if (!stroke) return null
@@ -876,6 +928,7 @@ const loadFile = async () => {
 
   currentPage.value = 1
   annotations.value = []
+  matchDetails.value = []
 
   // 加载已有标注
   await loadAnnotations()
@@ -1288,7 +1341,7 @@ const redrawAnnotations = () => {
     const fontColor = coords.font_color || '#333'
     const fontFamily = formatFontFamily(sanitizeFontFamily(coords.font_family || 'SimHei'))
     const isActive = selectedAnnotation.value === annotation
-    ctx.strokeStyle = isActive ? '#f56c6c' : getAnnotationColor(annotation.annotation_type)
+    ctx.strokeStyle = getAnnotationStrokeColor(annotation, isActive)
     ctx.lineWidth = isActive ? 3 : 2
     ctx.strokeRect(coords.x, coords.y, coords.width, coords.height)
 
@@ -1483,6 +1536,15 @@ const getAnnotationColor = (type) => {
     image: '#E6A23C'
   }
   return colors[type] || '#909399'
+}
+
+const getAnnotationStrokeColor = (annotation, isActive) => {
+  if (isActive) return '#f56c6c'
+  const conf = getAnnotationConfidence(annotation)
+  if (conf === null || conf === undefined) return getAnnotationColor(annotation.annotation_type)
+  if (conf >= 0.8) return getAnnotationColor(annotation.annotation_type)
+  if (conf >= 0.5) return '#E6A23C' // warning
+  return '#F56C6C' // danger
 }
 
 // 获取标注类型名称
@@ -1863,7 +1925,12 @@ const createNewTemplate = async () => {
       field_value: ann.field_value || '',
       image_path: ann.image_path || null,
       page_number: ann.page_number || 1,
-      coordinates: ann.coordinates || null
+      coordinates: ann.coordinates || null,
+      keywords: [ann.field_name || `field_${idx + 1}`],
+      page_hint: ann.page_number || 1,
+      anchor_offset: { x: 0, y: 0 },
+      confidence_threshold: 0.3,
+      long_text: ann.annotation_type === 'long_text' ? { max_lines: 5, end_keywords: [] } : null
     }))
 
     if (fields.length === 0) {
@@ -1932,8 +1999,35 @@ const applyTemplateToFile = async (templateId) => {
     }
     await loadAnnotations()
     activeTab.value = 'annotations'
+    matchDetails.value = []
+    matchDetailVisible.value = false
   } catch (error) {
     ElMessage.error('应用模板失败: ' + (error.message || '未知错误'))
+  }
+}
+
+const applyTemplateMatchingToFile = async (templateId) => {
+  if (!selectedFileId.value) {
+    ElMessage.warning('请先选择文件')
+    return
+  }
+
+  try {
+    const response = await applyTemplateMatching(templateId, selectedFileId.value)
+    ElMessage.info(response.message || '已完成一键抽取')
+    matchDetails.value = response.match_details || []
+    matchDetailVisible.value = !!(response.match_details && response.match_details.length)
+    if (response.paint_data) {
+      paintHistory.value = normalizePaintStrokes(response.paint_data)
+      tempPaint.value = null
+      redrawAnnotations()
+    } else {
+      await loadPaint()
+    }
+    await loadAnnotations()
+    activeTab.value = 'annotations'
+  } catch (error) {
+    ElMessage.error('一键抽取失败: ' + (error.message || '未知错误'))
   }
 }
 

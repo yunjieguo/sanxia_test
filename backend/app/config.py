@@ -28,6 +28,12 @@ class Settings(BaseSettings):
     # 允许的文件类型
     ALLOWED_EXTENSIONS: str = "pdf,png,jpg,jpeg,doc,docx,ofd,zip,rar"
 
+    # OCR / 布局解析
+    ENABLE_OCR: bool = False
+    OCR_PROVIDER: str = "paddle"  # paddle/custom
+    OCR_USE_GPU: bool = False
+    LAYOUTLM_MODEL_NAME: str = "microsoft/layoutlmv3-base"
+
     # CORS 配置
     CORS_ORIGINS: str = "http://localhost:5173,http://localhost:3000"
 

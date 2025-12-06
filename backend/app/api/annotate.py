@@ -25,6 +25,7 @@ from ..schemas.annotation import (
     PaintData
 )
 from ..config import settings
+from ..services.ocr_engine import extract_text_blocks_with_fallback
 
 router = APIRouter(prefix="/api/annotations", tags=["标注管理"])
 template_router = APIRouter(prefix="/api/templates", tags=["模板管理"])
@@ -481,49 +482,138 @@ async def delete_template(
     return {"message": "模板删除成功", "template_id": template_id}
 
 
-@template_router.post("/{template_id}/apply", response_model=ApplyTemplateResponse, summary="应用模板")
-async def apply_template(
-    template_id: int,
-    request: ApplyTemplateRequest,
-    db: Session = Depends(get_db)
-):
+def _apply_template_to_file(
+    template: Template,
+    file: File,
+    db: Session,
+    use_matching: bool = False
+) -> ApplyTemplateResponse:
     """
-    应用模板到文件（自动提取信息）
-
-    注意：此接口目前返回模板定义，实际的信息抽取功能将在后续实现
-
-    Args:
-        template_id: 模板ID
-        request: 应用请求
-        db: 数据库会话
-
-    Returns:
-        提取结果
+    基于模板字段生成标注占位，预留匹配扩展。
+    当前版本：做简单文本层匹配（基于 PyMuPDF），找不到时回退模板坐标。
     """
-    # 检查模板是否存在
-    template = db.query(Template).filter(Template.id == template_id).first()
-    if not template:
-        raise HTTPException(status_code=404, detail="模板不存在")
-
-    # 检查文件是否存在
-    file = db.query(File).filter(File.id == request.file_id).first()
-    if not file:
-        raise HTTPException(status_code=404, detail="文件不存在")
-
-    # 基于模板字段生成标注占位（示例逻辑，可替换为真实提取）
-    template_data = json.loads(template.template_data)
+    template_data = json.loads(template.template_data or "{}")
     fields = template_data.get("fields", [])
     paint_data = template_data.get("paint_data")
 
     created_annotations = []
+    ann_conf_list = []
+    match_details = []
     base_x, base_y = 60, 60
     gap_y = 50
 
+    text_blocks = []
+    if use_matching and os.path.exists(file.file_path):
+        text_blocks = extract_text_blocks_with_fallback(file.file_path)
+
+    def _match_field(field_def):
+        # 默认坐标
+        coords = field_def.get("coordinates") or {
+            "x": base_x,
+            "y": base_y,
+            "width": 180,
+            "height": 36
+        }
+        page_number = field_def.get("page_number") or 1
+        confidence = field_def.get("confidence_threshold") or 0.3
+        strategy = "template_coordinates"
+        note = "未找到匹配，使用模板坐标"
+        field_value = None
+
+        if not use_matching or not text_blocks:
+            return coords, page_number, confidence, strategy, note, field_value
+
+        keywords = field_def.get("keywords") or [field_def.get("field_name", "")]
+        keywords = [kw for kw in keywords if kw]
+        anchor_offset = field_def.get("anchor_offset") or {}
+        off_x = anchor_offset.get("x", 0)
+        off_y = anchor_offset.get("y", 0)
+
+        target_pages = []
+        if field_def.get("page_hint"):
+            target_pages = [field_def["page_hint"] - 1] if field_def["page_hint"] > 0 else []
+        if not target_pages:
+            target_pages = list(range(len(text_blocks)))
+
+        found = None
+        def _gather_long_text(page_blocks, start_idx, long_cfg):
+            max_lines = max(int(long_cfg.get("max_lines", 5)), 1)
+            end_keywords = [kw.lower() for kw in (long_cfg.get("end_keywords") or []) if kw]
+            collected = []
+            for blk in page_blocks[start_idx:start_idx + max_lines]:
+                text = (blk["text"] or "").strip()
+                if not text:
+                    continue
+                lower = text.lower()
+                if end_keywords and any(ek in lower for ek in end_keywords):
+                    break
+                collected.append(text)
+            return "\n".join(collected).strip() if collected else None
+
+        for p_idx in target_pages:
+            if p_idx < 0 or p_idx >= len(text_blocks):
+                continue
+            page_blocks = text_blocks[p_idx]
+            for blk_idx, blk in enumerate(page_blocks):
+                text_lower = (blk["text"] or "").lower()
+                hit_kw = None
+                for kw in keywords:
+                    if kw.lower() in text_lower:
+                        hit_kw = kw
+                        break
+                if hit_kw:
+                    bbox = blk["bbox"]
+                    width = coords.get("width") or (bbox[2] - bbox[0])
+                    height = coords.get("height") or (bbox[3] - bbox[1])
+                    found = {
+                        "x": bbox[0] + off_x,
+                        "y": bbox[1] + off_y,
+                        "width": width,
+                        "height": height,
+                        "page_number": p_idx + 1,
+                        "keyword": hit_kw
+                    }
+
+                    # 提取字段值：短文本取当前块，长文本尝试多行
+                    ftype = field_def.get("field_type")
+                    if ftype == "long_text":
+                        long_cfg = field_def.get("long_text") or {}
+                        field_value = _gather_long_text(page_blocks, blk_idx, long_cfg) or blk["text"].strip()
+                    elif ftype == "text":
+                        field_value = blk["text"].strip()
+                    else:
+                        field_value = field_def.get("field_value")
+                    break
+            if found:
+                break
+
+        if found:
+            return (
+                {
+                    "x": found["x"],
+                    "y": found["y"],
+                    "width": found["width"],
+                    "height": found["height"],
+                    "font_size": coords.get("font_size"),
+                    "font_color": coords.get("font_color"),
+                    "font_family": coords.get("font_family")
+                },
+                found["page_number"],
+                max(confidence, 0.8),
+                "keyword_offset",
+                f"命中关键词: {found['keyword']}",
+                field_value
+            )
+
+        return coords, page_number, confidence, "template_coordinates", note, field_value
+
     for idx, field in enumerate(fields):
+        field_name = field.get("field_name", f"field_{idx+1}")
+
         # 如果已存在同名字段的标注则跳过
         exists = db.query(Annotation).filter(
-            Annotation.file_id == request.file_id,
-            Annotation.field_name == field.get("field_name")
+            Annotation.file_id == file.id,
+            Annotation.field_name == field_name
         ).first()
         if exists:
             continue
@@ -536,17 +626,34 @@ async def apply_template(
         }
         page_number = field.get("page_number") or 1
 
+        match_conf = 0.0
+        strategy = "template_coordinates"
+        note = None
+        matched_value = None
+        if use_matching:
+            coords, page_number, match_conf, strategy, note, matched_value = _match_field(field)
+
         ann = Annotation(
-            file_id=request.file_id,
+            file_id=file.id,
             page_number=page_number,
             annotation_type=field.get("field_type", "text"),
-            field_name=field.get("field_name", f"field_{idx+1}"),
-            field_value=field.get("field_value", ""),
+            field_name=field_name,
+            field_value=matched_value if matched_value is not None else field.get("field_value", ""),
             image_path=field.get("image_path"),
             coordinates=json.dumps(coords)
         )
         db.add(ann)
         created_annotations.append(ann)
+        ann_conf_list.append({"field_name": field_name, "confidence": match_conf})
+
+        if use_matching:
+            match_details.append({
+                "field_name": field_name,
+                "page_number": page_number,
+                "strategy": strategy,
+                "confidence": match_conf,
+                "note": note or ""
+            })
 
     db.commit()
     for ann in created_annotations:
@@ -554,7 +661,7 @@ async def apply_template(
 
     # 如果模板包含画笔数据，落盘到该文件
     if paint_data:
-        paint_file = _get_paint_file_path(request.file_id)
+        paint_file = _get_paint_file_path(file.id)
         try:
             with open(paint_file, "w", encoding="utf-8") as f:
                 json.dump({"strokes": paint_data}, f, ensure_ascii=False)
@@ -568,7 +675,7 @@ async def apply_template(
             "page_number": ann.page_number,
             "coordinates": json.loads(ann.coordinates),
             "annotation_id": ann.id,
-            "confidence": 0.0
+            "confidence": next((c["confidence"] for c in ann_conf_list if c["field_name"] == ann.field_name), 0.0)
         }
         for ann in created_annotations
     ]
@@ -577,8 +684,50 @@ async def apply_template(
         message=f"模板应用成功，新增 {len(extracted_data)} 条标注占位",
         extracted_data=extracted_data,
         total_extracted=len(extracted_data),
-        paint_data=paint_data or []
+        paint_data=paint_data or [],
+        match_details=match_details or None
     )
+
+
+@template_router.post("/{template_id}/apply", response_model=ApplyTemplateResponse, summary="应用模板")
+async def apply_template(
+    template_id: int,
+    request: ApplyTemplateRequest,
+    db: Session = Depends(get_db)
+):
+    """
+    应用模板到文件（无匹配，直接使用模板坐标）
+    """
+    template = db.query(Template).filter(Template.id == template_id).first()
+    if not template:
+        raise HTTPException(status_code=404, detail="模板不存在")
+
+    file = db.query(File).filter(File.id == request.file_id).first()
+    if not file:
+        raise HTTPException(status_code=404, detail="文件不存在")
+
+    return _apply_template_to_file(template, file, db, use_matching=False)
+
+
+@template_router.post("/{template_id}/apply-matching", response_model=ApplyTemplateResponse, summary="应用模板并匹配")
+async def apply_template_matching(
+    template_id: int,
+    request: ApplyTemplateRequest,
+    db: Session = Depends(get_db)
+):
+    """
+    应用模板到文件（预留匹配扩展）。
+    当前版本：未集成 OCR/文本匹配，使用模板坐标回填，并返回 match_details 便于前端提示。
+    """
+    template = db.query(Template).filter(Template.id == template_id).first()
+    if not template:
+        raise HTTPException(status_code=404, detail="模板不存在")
+
+    file = db.query(File).filter(File.id == request.file_id).first()
+    if not file:
+        raise HTTPException(status_code=404, detail="文件不存在")
+
+    return _apply_template_to_file(template, file, db, use_matching=True)
 
 
 # ==================== 图片标注相关接口 ====================

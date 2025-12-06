@@ -13,19 +13,19 @@ reportlab==4.0.7
 
 # 文档转换
 python-docx==1.1.0
-Pillow==10.1.0
+Pillow==11.3.0
 img2pdf==0.5.1
 pypandoc==1.12
 
 # 压缩包处理
 rarfile==4.2
 
-# OCR (可选)
-# paddleocr==2.7.0
-# paddlepaddle==2.5.2
+# OCR
+paddleocr==2.7.0
+paddlepaddle==2.6.2
 
-# 数据库
-sqlalchemy==2.0.23
+# 数据库（databases 0.8.x 要求 sqlalchemy<1.5）
+sqlalchemy==1.4.50
 databases==0.8.0
 aiosqlite==0.19.0
 

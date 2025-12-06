@@ -173,6 +173,14 @@ export function applyTemplate(templateId, fileId) {
   })
 }
 
+export function applyTemplateMatching(templateId, fileId) {
+  return request({
+    url: `/templates/${templateId}/apply-matching`,
+    method: 'post',
+    data: { file_id: fileId }
+  })
+}
+
 /**
  * 上传标注图片
  * @param {File} file 图片文件
