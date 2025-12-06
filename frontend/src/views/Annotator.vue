@@ -426,24 +426,24 @@
                 >
                   <div class="template-header">
                     <span class="template-name">{{ template.template_name }}</span>
-                    <div>
-                      <el-button size="small" @click="viewTemplate(template)" style="margin-right: 6px">
-                        查看
-                      </el-button>
-                      <el-button size="small" @click="applyTemplateToFile(template.id)" style="margin-right: 6px">
-                        应用
-                      </el-button>
-                      <el-button type="success" size="small" @click="applyTemplateMatchingToFile(template.id)">
-                        一键抽取
-                      </el-button>
-                      <el-button type="danger" size="small" text @click="deleteTemplateById(template.id)">
-                        <el-icon><Delete /></el-icon>
-                      </el-button>
-                    </div>
-                  </div>
-                  <div class="template-info">
                     <el-tag size="small">{{ template.document_type }}</el-tag>
-                    <span v-if="template.description">{{ template.description }}</span>
+                  </div>
+                  <div class="template-info" v-if="template.description">
+                    <span>{{ template.description }}</span>
+                  </div>
+                  <div class="template-actions">
+                    <el-button size="small" @click="viewTemplate(template)">
+                      查看
+                    </el-button>
+                    <!-- <el-button size="small" @click="applyTemplateToFile(template.id)">
+                      应用
+                    </el-button> -->
+                    <el-button type="success" size="small" @click="applyTemplateMatchingToFile(template.id)">
+                      一键抽取
+                    </el-button>
+                    <el-button type="danger" size="small" text @click="deleteTemplateById(template.id)">
+                      <el-icon><Delete /></el-icon>
+                    </el-button>
                   </div>
                 </div>
               </div>
@@ -2517,10 +2517,11 @@ const formatDate = (dateStr) => {
 }
 
 .template-item {
-  padding: 10px;
+  padding: 12px 14px;
   border: 1px solid #e0e0e0;
-  border-radius: 4px;
+  border-radius: 6px;
   margin-bottom: 10px;
+  background: #fff;
 }
 
 .template-preview-body {
@@ -2530,13 +2531,14 @@ const formatDate = (dateStr) => {
 
 .template-header {
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  margin-bottom: 8px;
+  gap: 10px;
+  margin-bottom: 4px;
 }
 
 .template-name {
   font-weight: bold;
+  font-size: 15px;
 }
 
 .template-info {
@@ -2545,6 +2547,14 @@ const formatDate = (dateStr) => {
   gap: 10px;
   font-size: 13px;
   color: #666;
+  margin-bottom: 6px;
+}
+
+.template-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 8px;
 }
 
 .template-image {
