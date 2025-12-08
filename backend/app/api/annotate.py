@@ -701,7 +701,54 @@ def _apply_template_to_file(
     date_pattern = re.compile(r"\d{4}[./-年]?\s*\d{1,2}[./-月]?\s*\d{1,2}[日号]?")
     number_pattern = re.compile(r"(合同编号[:：]?\s*[A-Za-z0-9\\-_/]+)")
     amount_pattern = re.compile(r"[¥￥]?\s*\d[\\d,\\.]*\\s*元?")
-    party_pattern = re.compile(r"[甲乙]方[:：]\s*([\u4e00-\u9fa5A-Za-z0-9()（）·\s]+)")
+    party_pattern = re.compile(r"(甲方|乙方)[:：]\s*([\u4e00-\u9fa5A-Za-z0-9()（）·\s]+)")
+
+    def _looks_like_amount(text: str) -> bool:
+        t = text or ""
+        return ("¥" in t or "￥" in t or "元" in t or "人民币" in t or "万" in t) and re.search(r"\d", t) is not None
+
+    def _strict_date_match(text: str):
+        """更严格的日期匹配，校验年月日范围，避免 30000.00 被误判。"""
+        if not text:
+            return None
+        t = text.strip()
+        # 必须包含日期分隔符或年月
+        if not any(sep in t for sep in ["年", "月", "-", "/"]):
+            return None
+        # 统一分隔符
+        tmp = re.sub(r"[年/.]", "-", t)
+        m = re.search(r"(\d{4})-(\d{1,2})-(\d{1,2})", tmp)
+        if not m:
+            return None
+        y, mo, d = int(m.group(1)), int(m.group(2)), int(m.group(3))
+        if not (1 <= mo <= 12 and 1 <= d <= 31):
+            return None
+        return m.group(0)
+
+    def _looks_like_date(text: str) -> bool:
+        return _strict_date_match(text) is not None
+
+    def _is_expected_party(field_name: str, text: str) -> bool:
+        """严格区分甲/乙方，避免互相误标。"""
+        t = text or ""
+        if field_name == "party_a":
+            return "甲方" in t or "需方" in t or "购买方" in t
+        if field_name == "party_b":
+            return "乙方" in t or "供方" in t or "销售方" in t
+        return True
+
+    def _extract_value_after_keyword(text: str, keyword: str) -> str:
+        """从命中文本中提取关键词后的内容，例如 '甲方：某某公司'。"""
+        if not text:
+            return ""
+        parts = re.split(r"[:：]", text, maxsplit=1)
+        if len(parts) == 2:
+            right = parts[1].strip()
+            # 去掉再次出现的关键词
+            if keyword and right.startswith(keyword):
+                right = right[len(keyword):].lstrip("：:").strip()
+            return right or text.strip()
+        return text.strip()
 
     POINTS_TO_PX = 96.0 / 72.0  # fitz 返回 point，前端 pdf.js 默认 96dpi
 
@@ -717,6 +764,9 @@ def _apply_template_to_file(
         }
 
     def _match_field(field_def):
+        """
+        返回同一字段的全部命中 [(coords, page, conf, strategy, note, value), ...]
+        """
         # 默认坐标
         coords = field_def.get("coordinates") or {
             "x": base_x,
@@ -726,22 +776,25 @@ def _apply_template_to_file(
         }
         page_number = field_def.get("page_number") or 1
         confidence = field_def.get("confidence_threshold") or 0.3
-        strategy = "template_coordinates"
         note = "未找到匹配，使用模板坐标"
         field_value = None
 
-        # 如果有 LLM 结果，优先使用 LLM 返回的坐标/值
+        # 如果有 LLM 结果，优先使用 LLM 返回的坐标/值（单个返回），并做字段校验
         if llm_results and field_def.get("field_name") in llm_results:
             llm_item = llm_results[field_def.get("field_name")]
             llm_coords = llm_item.get("coords")
             llm_page = llm_item.get("page_number") or page_number
             llm_value = llm_item.get("value") or field_value
             llm_conf = llm_item.get("confidence") or 0.9
+            # 甲/乙方严格校验
+            if field_def.get("field_name") in ("party_a", "party_b") and llm_value:
+                if not _is_expected_party(field_def.get("field_name"), str(llm_value)):
+                    llm_coords = None  # 丢弃不符合的 LLM 结果
             if llm_coords:
-                return _scale_coords(llm_coords), llm_page, llm_conf, "llm", "LLM 返回坐标", llm_value
+                return [(_scale_coords(llm_coords), llm_page, llm_conf, "llm", "LLM 返回坐标", llm_value)]
 
         if not use_matching or not text_blocks:
-            return coords, page_number, confidence, strategy, note, field_value
+            return [(coords, page_number, confidence, "template_coordinates", note, field_value)]
 
         field_name = field_def.get("field_name", "")
         keywords = field_def.get("keywords") or preset_keywords.get(field_name, []) or [field_name]
@@ -750,13 +803,11 @@ def _apply_template_to_file(
         off_x = anchor_offset.get("x", 0)
         off_y = anchor_offset.get("y", 0)
 
-        target_pages = []
-        if field_def.get("page_hint"):
-            target_pages = [field_def["page_hint"] - 1] if field_def["page_hint"] > 0 else []
-        if not target_pages:
-            target_pages = list(range(len(text_blocks)))
+        # 不再按模板页码限制，始终遍历新文档的所有页
+        target_pages = list(range(len(text_blocks)))
 
-        found = None
+        found_hits = []
+
         def _gather_long_text(page_blocks, start_idx, long_cfg):
             max_lines = max(int(long_cfg.get("max_lines", 5)), 1)
             end_keywords = [kw.lower() for kw in (long_cfg.get("end_keywords") or []) if kw]
@@ -819,14 +870,26 @@ def _apply_template_to_file(
                         long_cfg = field_def.get("long_text") or {}
                         field_value = _gather_long_text(page_blocks, blk_idx, long_cfg) or merged_text
                     elif ftype == "text":
-                        field_value = merged_text
+                        # 尝试提取冒号后的值
+                        field_value = _extract_value_after_keyword(merged_text, hit_kw)
                     else:
                         field_value = field_def.get("field_value")
-                    break
+                    # 甲/乙方严格校验
+                    if field_name in ("party_a", "party_b") and not _is_expected_party(field_name, merged_text):
+                        continue
+                    found_hits.append((found, field_value))
+                    continue
                 # 关键词未命中，尝试正则抽取特定字段
                 if not hit_kw and field_name:
                     if field_name == "contract_date":
-                        m = date_pattern.search(raw_text)
+                        # 避免金额误判成日期，使用严格日期匹配
+                        if _looks_like_amount(raw_text):
+                            m = None
+                        else:
+                            strict_val = _strict_date_match(raw_text)
+                            m = None
+                            if strict_val:
+                                m = re.search(re.escape(strict_val), raw_text)
                         if m:
                             found = {
                                 "x": blk["bbox"][0] + off_x,
@@ -837,7 +900,8 @@ def _apply_template_to_file(
                                 "keyword": "regex_date"
                             }
                             field_value = m.group(0).strip()
-                            break
+                            found_hits.append((found, field_value))
+                            continue
                     elif field_name == "contract_number":
                         m = number_pattern.search(raw_text)
                         if m:
@@ -850,9 +914,14 @@ def _apply_template_to_file(
                                 "keyword": "regex_number"
                             }
                             field_value = m.group(0).replace("合同编号", "").replace("编号", "").replace("：", "").replace(":", "").strip()
-                            break
+                            found_hits.append((found, field_value))
+                            continue
                     elif field_name == "contract_amount":
-                        m = amount_pattern.search(raw_text)
+                        # 避免日期误判成金额
+                        if _looks_like_date(raw_text):
+                            m = None
+                        else:
+                            m = amount_pattern.search(raw_text)
                         if m:
                             found = {
                                 "x": blk["bbox"][0] + off_x,
@@ -863,90 +932,91 @@ def _apply_template_to_file(
                                 "keyword": "regex_amount"
                             }
                             field_value = m.group(0).strip()
-                            break
+                            found_hits.append((found, field_value))
+                            continue
                     elif field_name in ("party_a", "party_b"):
                         m = party_pattern.search(raw_text)
                         if m:
-                            found = {
-                                "x": blk["bbox"][0] + off_x,
-                                "y": blk["bbox"][1] + off_y,
-                                "width": coords.get("width") or (blk["bbox"][2] - blk["bbox"][0]),
-                                "height": coords.get("height") or (blk["bbox"][3] - blk["bbox"][1]),
-                                "page_number": p_idx + 1,
-                                "keyword": "regex_party"
-                            }
-                            field_value = m.group(1).strip()
-                            break
-            if found:
-                break
+                            prefix = m.group(1)
+                            val = m.group(2).strip()
+                            if (field_name == "party_a" and prefix == "甲方") or (field_name == "party_b" and prefix == "乙方"):
+                                found = {
+                                    "x": blk["bbox"][0] + off_x,
+                                    "y": blk["bbox"][1] + off_y,
+                                    "width": coords.get("width") or (blk["bbox"][2] - blk["bbox"][0]),
+                                    "height": coords.get("height") or (blk["bbox"][3] - blk["bbox"][1]),
+                                    "page_number": p_idx + 1,
+                                    "keyword": "regex_party"
+                                }
+                                field_value = val
+                                found_hits.append((found, field_value))
+                            continue
+            # 不再 break，允许同字段多页多次命中
 
-        if found:
-            return (
-                _scale_coords({
-                    "x": found["x"],
-                    "y": found["y"],
-                    "width": found["width"],
-                    "height": found["height"],
-                    "font_size": coords.get("font_size"),
-                    "font_color": coords.get("font_color"),
-                    "font_family": coords.get("font_family")
-                }),
-                found["page_number"],
-                max(confidence, 0.8),
-                "regex" if found.get("keyword", "").startswith("regex") else "keyword_offset",
-                f"命中关键词: {found.get('keyword')}" if found.get("keyword") else "正则匹配",
-                field_value
-            )
+        if found_hits:
+            results = []
+            for fnd, fval in found_hits:
+                results.append(
+                    (
+                        _scale_coords({
+                            "x": fnd["x"],
+                            "y": fnd["y"],
+                            "width": fnd["width"],
+                            "height": fnd["height"],
+                            "font_size": coords.get("font_size"),
+                            "font_color": coords.get("font_color"),
+                            "font_family": coords.get("font_family")
+                        }),
+                        fnd["page_number"],
+                        max(confidence, 0.8),
+                        "regex" if fnd.get("keyword", "").startswith("regex") else "keyword_offset",
+                        f"命中关键词: {fnd.get('keyword')}" if fnd.get("keyword") else "正则匹配",
+                        fval
+                    )
+                )
+            return results
 
-        return coords, page_number, confidence, "template_coordinates", note, field_value
+        return [(coords, page_number, confidence, "template_coordinates", note, field_value)]
 
     for idx, field in enumerate(fields):
         field_name = field.get("field_name", f"field_{idx+1}")
 
-        # 如果已存在同名字段的标注则跳过
-        exists = db.query(Annotation).filter(
-            Annotation.file_id == file.id,
-            Annotation.field_name == field_name
-        ).first()
-        if exists:
-            continue
-
-        coords = field.get("coordinates") or {
+        coords_default = field.get("coordinates") or {
             "x": base_x,
             "y": base_y + idx * gap_y,
             "width": 180,
             "height": 36
         }
-        page_number = field.get("page_number") or 1
+        page_default = field.get("page_number") or 1
 
-        match_conf = 0.0
-        strategy = "template_coordinates"
-        note = None
-        matched_value = None
+        # 匹配可能返回多条
         if use_matching:
-            coords, page_number, match_conf, strategy, note, matched_value = _match_field(field)
+            matches = _match_field(field)
+        else:
+            matches = [(coords_default, page_default, 0.3, "template_coordinates", "未启用匹配", None)]
 
-        ann = Annotation(
-            file_id=file.id,
-            page_number=page_number,
-            annotation_type=field.get("field_type", "text"),
-            field_name=field_name,
-            field_value=matched_value if matched_value is not None else field.get("field_value", ""),
-            image_path=field.get("image_path"),
-            coordinates=json.dumps(coords)
-        )
-        db.add(ann)
-        created_annotations.append(ann)
-        ann_conf_list.append({"field_name": field_name, "confidence": match_conf})
+        for coords, match_page, match_conf, strategy, note, matched_value in matches:
+            ann = Annotation(
+                file_id=file.id,
+                page_number=match_page,
+                annotation_type=field.get("field_type", "text"),
+                field_name=field_name,
+                field_value=matched_value if matched_value is not None else field.get("field_value", ""),
+                image_path=field.get("image_path"),
+                coordinates=json.dumps(coords)
+            )
+            db.add(ann)
+            created_annotations.append(ann)
+            ann_conf_list.append({"field_name": field_name, "confidence": match_conf})
 
-        if use_matching:
-            match_details.append({
-                "field_name": field_name,
-                "page_number": page_number,
-                "strategy": strategy,
-                "confidence": match_conf,
-                "note": note or ""
-            })
+            if use_matching:
+                match_details.append({
+                    "field_name": field_name,
+                    "page_number": match_page,
+                    "strategy": strategy,
+                    "confidence": match_conf,
+                    "note": note or ""
+                })
 
     db.commit()
     for ann in created_annotations:

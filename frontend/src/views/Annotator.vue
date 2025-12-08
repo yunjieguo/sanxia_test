@@ -283,7 +283,7 @@
                 type="danger"
                 size="small"
                 link
-                :disabled="annotations.length === 0"
+                :disabled="totalAnnotationCount === 0"
                 @click="clearAnnotations"
               >
                 清空
