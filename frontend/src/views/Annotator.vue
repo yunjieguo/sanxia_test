@@ -438,9 +438,9 @@
                     <!-- <el-button size="small" @click="applyTemplateToFile(template.id)">
                       应用
                     </el-button> -->
-                    <el-button type="success" size="small" @click="applyTemplateMatchingToFile(template.id)">
+                    <!-- <el-button type="success" size="small" @click="applyTemplateMatchingToFile(template.id)">
                       一键抽取
-                    </el-button>
+                    </el-button> -->
                     <el-button
                       type="warning"
                       size="small"
