@@ -1,43 +1,33 @@
-# 项目需求文档
+﻿# PDF 转换 & 文档标注说明
 
-要求： 中文回复；
+## 功能概览
+- PDF 转换：支持 Word/图片/压缩包/OFD 转 PDF，多文件上传，状态查询，结果存储在 backend/outputs/。
+- 文档标注：前端 Canvas 标注与模板管理；后端 FastAPI + SQLAlchemy；关键词/页码提示/锚点偏移匹配；OCR 回退（PaddleOCR）；LLM 一键应用（通义 qwen-vl 系列）。
 
-## 一、PDF 转换技术实现
-1.1 前端页面实现文件上传功能，支持多文件上传，文件格式要求为：pdf、png、jpg、jpeg、doc、docx、ofd；
-1.2 后端接收前端上传的文件，判断文件类型是否为压缩包格式，压缩包格式要求为：rar、zip；
-1.3 如果是压缩包格式，先进行解压，再将解压后的文件进行 pdf 转换；
-1.4 如果不是压缩包格式，直接进行 pdf 转换；
-1.5 转换完成后，将转换后的 pdf 文件返回给前端页面，用户可以下载或预览；
+## 技术栈
+- 前端：Vue3 + Vite + Element Plus
+- 后端：Python + FastAPI + SQLAlchemy
+- OCR：PyMuPDF 文本块 + PaddleOCR 回退（需 Python3.10 环境）
+- LLM：通义 DashScope（默认 qwen-vl-max），接口 /api/templates/{id}/apply-llm
 
-## 二、
-2.1 对长文本、文本、图片、表格等标注功能的二次开发能力，需现场 demo 演示测试。
-2.2 上传合同文档，演示合同名称、日期、编号和金额标注；长文本标注（多段落）；图片标注；表格标注；
-2.3 标注完成后根据标注结果可自动对另一份合同的名称、日期、编号和金额进行抽取并标注；
-2.4 标注完成后，可对标注内容结果进行删除、修改、保存的操作；
-
-## 三、补充需求
-3.1 实现对 PDF 文件内容编辑的功能（文本编辑、表单编辑、注释/批注、页面管理）
-
----
-
-## 技术实现说明
-
-### 技术栈
-- **前端**: Vue 3 + Vite + Element Plus
-- **后端**: Python + FastAPI
-- **部署**: 单机部署
-### 单机部署
-
-1. **后端部署**
-```bash
+## 快速启动
+后端
+`ash
 cd backend
 pip install -r requirements.txt
 uvicorn app.main:app --host 0.0.0.0 --port 8000
-```
+`
 
-2. **前端构建**
-```bash
+前端
+`ash
 cd frontend
 npm install
-npm run build
-```
+npm run dev
+`
+
+## 配置
+- backend/.env 关键项：DASHSCOPE_API_KEY、DASHSCOPE_ENDPOINT、QWEN_MODEL_NAME、ENABLE_OCR、OCR_PROVIDER、UPLOAD_DIR 等。
+- LLM 调用：POST /api/templates/{id}/apply-llm，前端模板列表提供“LLM 一键应用”按钮（可配置 top_k、image_width）。
+
+## 说明
+- 项目已移除 PDF 编辑功能，保留转换与标注。
