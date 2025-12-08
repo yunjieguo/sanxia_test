@@ -441,6 +441,15 @@
                     <el-button type="success" size="small" @click="applyTemplateMatchingToFile(template.id)">
                       一键抽取
                     </el-button>
+                    <el-button
+                      type="warning"
+                      size="small"
+                      :loading="llmApplying"
+                      :disabled="llmApplying || !selectedFileId"
+                      @click="applyTemplateLLMToFile(template.id)"
+                    >
+                      LLM 一键应用
+                    </el-button>
                     <el-button type="danger" size="small" text @click="deleteTemplateById(template.id)">
                       <el-icon><Delete /></el-icon>
                     </el-button>
@@ -677,6 +686,7 @@ import {
   deleteTemplate,
   applyTemplate,
   applyTemplateMatching,
+  applyTemplateLLM,
   updateAnnotation,
   uploadAnnotationImage,
   getAnnotationImageUrl,
@@ -772,6 +782,7 @@ const newTemplate = ref({
 })
 const matchDetails = ref([])
 const matchDetailVisible = ref(false)
+const llmApplying = ref(false)
 
 // 计算属性
 const pdfFiles = computed(() => {
@@ -2028,6 +2039,34 @@ const applyTemplateMatchingToFile = async (templateId) => {
     activeTab.value = 'annotations'
   } catch (error) {
     ElMessage.error('一键抽取失败: ' + (error.message || '未知错误'))
+  }
+}
+
+// LLM 一键应用
+const applyTemplateLLMToFile = async (templateId) => {
+  if (!selectedFileId.value) {
+    ElMessage.warning('请先选择文件')
+    return
+  }
+  llmApplying.value = true
+  try {
+    const response = await applyTemplateLLM(templateId, selectedFileId.value)
+    ElMessage.info(response.message || '已完成 LLM 一键应用')
+    matchDetails.value = response.match_details || []
+    matchDetailVisible.value = !!(response.match_details && response.match_details.length)
+    if (response.paint_data) {
+      paintHistory.value = normalizePaintStrokes(response.paint_data)
+      tempPaint.value = null
+      redrawAnnotations()
+    } else {
+      await loadPaint()
+    }
+    await loadAnnotations()
+    activeTab.value = 'annotations'
+  } catch (error) {
+    ElMessage.error('LLM 一键应用失败: ' + (error.message || '未知错误'))
+  } finally {
+    llmApplying.value = false
   }
 }
 

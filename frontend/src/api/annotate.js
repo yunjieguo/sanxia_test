@@ -1,11 +1,11 @@
-/**
- * 标注相关 API
+﻿/**
+ * 鏍囨敞鐩稿叧 API
  */
 import request from '../utils/request'
 
 /**
- * 创建标注
- * @param {Object} data 标注数据
+ * 鍒涘缓鏍囨敞
+ * @param {Object} data 鏍囨敞鏁版嵁
  * @returns {Promise}
  */
 export function createAnnotation(data) {
@@ -17,8 +17,8 @@ export function createAnnotation(data) {
 }
 
 /**
- * 批量创建标注
- * @param {Object} data 批量标注数据
+ * 鎵归噺鍒涘缓鏍囨敞
+ * @param {Object} data 鎵归噺鏍囨敞鏁版嵁
  * @returns {Promise}
  */
 export function createAnnotationsBatch(data) {
@@ -30,9 +30,9 @@ export function createAnnotationsBatch(data) {
 }
 
 /**
- * 获取文件的所有标注
- * @param {number} fileId 文件ID
- * @param {number} pageNumber 页码（可选）
+ * 鑾峰彇鏂囦欢鐨勬墍鏈夋爣娉?
+ * @param {number} fileId 鏂囦欢ID
+ * @param {number} pageNumber 椤电爜锛堝彲閫夛級
  * @returns {Promise}
  */
 export function getFileAnnotations(fileId, pageNumber = null) {
@@ -45,8 +45,8 @@ export function getFileAnnotations(fileId, pageNumber = null) {
 }
 
 /**
- * 获取标注详情
- * @param {number} annotationId 标注ID
+ * 鑾峰彇鏍囨敞璇︽儏
+ * @param {number} annotationId 鏍囨敞ID
  * @returns {Promise}
  */
 export function getAnnotation(annotationId) {
@@ -57,9 +57,9 @@ export function getAnnotation(annotationId) {
 }
 
 /**
- * 更新标注
- * @param {number} annotationId 标注ID
- * @param {Object} data 更新数据
+ * 鏇存柊鏍囨敞
+ * @param {number} annotationId 鏍囨敞ID
+ * @param {Object} data 鏇存柊鏁版嵁
  * @returns {Promise}
  */
 export function updateAnnotation(annotationId, data) {
@@ -71,8 +71,8 @@ export function updateAnnotation(annotationId, data) {
 }
 
 /**
- * 删除标注
- * @param {number} annotationId 标注ID
+ * 鍒犻櫎鏍囨敞
+ * @param {number} annotationId 鏍囨敞ID
  * @returns {Promise}
  */
 export function deleteAnnotation(annotationId) {
@@ -83,8 +83,8 @@ export function deleteAnnotation(annotationId) {
 }
 
 /**
- * 删除文件的所有标注
- * @param {number} fileId 文件ID
+ * 鍒犻櫎鏂囦欢鐨勬墍鏈夋爣娉?
+ * @param {number} fileId 鏂囦欢ID
  * @returns {Promise}
  */
 export function deleteFileAnnotations(fileId) {
@@ -95,8 +95,8 @@ export function deleteFileAnnotations(fileId) {
 }
 
 /**
- * 创建模板
- * @param {Object} data 模板数据
+ * 鍒涘缓妯℃澘
+ * @param {Object} data 妯℃澘鏁版嵁
  * @returns {Promise}
  */
 export function createTemplate(data) {
@@ -108,8 +108,8 @@ export function createTemplate(data) {
 }
 
 /**
- * 获取模板列表
- * @param {string} documentType 文档类型（可选）
+ * 鑾峰彇妯℃澘鍒楄〃
+ * @param {string} documentType 鏂囨。绫诲瀷锛堝彲閫夛級
  * @returns {Promise}
  */
 export function getTemplates(documentType = null) {
@@ -122,8 +122,8 @@ export function getTemplates(documentType = null) {
 }
 
 /**
- * 获取模板详情
- * @param {number} templateId 模板ID
+ * 鑾峰彇妯℃澘璇︽儏
+ * @param {number} templateId 妯℃澘ID
  * @returns {Promise}
  */
 export function getTemplate(templateId) {
@@ -134,9 +134,9 @@ export function getTemplate(templateId) {
 }
 
 /**
- * 更新模板
- * @param {number} templateId 模板ID
- * @param {Object} data 更新数据
+ * 鏇存柊妯℃澘
+ * @param {number} templateId 妯℃澘ID
+ * @param {Object} data 鏇存柊鏁版嵁
  * @returns {Promise}
  */
 export function updateTemplate(templateId, data) {
@@ -148,8 +148,8 @@ export function updateTemplate(templateId, data) {
 }
 
 /**
- * 删除模板
- * @param {number} templateId 模板ID
+ * 鍒犻櫎妯℃澘
+ * @param {number} templateId 妯℃澘ID
  * @returns {Promise}
  */
 export function deleteTemplate(templateId) {
@@ -160,9 +160,9 @@ export function deleteTemplate(templateId) {
 }
 
 /**
- * 应用模板到文件
- * @param {number} templateId 模板ID
- * @param {number} fileId 文件ID
+ * 搴旂敤妯℃澘鍒版枃浠?
+ * @param {number} templateId 妯℃澘ID
+ * @param {number} fileId 鏂囦欢ID
  * @returns {Promise}
  */
 export function applyTemplate(templateId, fileId) {
@@ -182,8 +182,8 @@ export function applyTemplateMatching(templateId, fileId) {
 }
 
 /**
- * 上传标注图片
- * @param {File} file 图片文件
+ * 涓婁紶鏍囨敞鍥剧墖
+ * @param {File} file 鍥剧墖鏂囦欢
  * @returns {Promise}
  */
 export function uploadAnnotationImage(file) {
@@ -200,9 +200,9 @@ export function uploadAnnotationImage(file) {
 }
 
 /**
- * 获取标注图片URL
- * @param {string} imagePath 图片路径
- * @returns {string} 完整的图片URL
+ * 鑾峰彇鏍囨敞鍥剧墖URL
+ * @param {string} imagePath 鍥剧墖璺緞
+ * @returns {string} 瀹屾暣鐨勫浘鐗嘦RL
  */
 const getApiBaseUrl = () => {
   const envBase = import.meta.env.VITE_API_BASE_URL
@@ -219,14 +219,14 @@ const getApiBaseUrl = () => {
 
 export function getAnnotationImageUrl(imagePath) {
   if (!imagePath) return ''
-  // 从 annotation_images/xxx.jpg 中提取文件名
+  // 浠?annotation_images/xxx.jpg 涓彁鍙栨枃浠跺悕
   const filename = imagePath.split('/').pop()
   return `${getApiBaseUrl()}/api/annotations/images/${filename}`
 }
 
 /**
- * 删除标注图片
- * @param {string} imagePath 图片路径
+ * 鍒犻櫎鏍囨敞鍥剧墖
+ * @param {string} imagePath 鍥剧墖璺緞
  * @returns {Promise}
  */
 export function deleteAnnotationImage(imagePath) {
@@ -239,8 +239,8 @@ export function deleteAnnotationImage(imagePath) {
 }
 
 /**
- * 获取画笔数据
- * @param {number} fileId 文件ID
+ * 鑾峰彇鐢荤瑪鏁版嵁
+ * @param {number} fileId 鏂囦欢ID
  * @returns {Promise}
  */
 export function getPaintData(fileId) {
@@ -251,9 +251,9 @@ export function getPaintData(fileId) {
 }
 
 /**
- * 保存画笔数据
- * @param {number} fileId 文件ID
- * @param {Array} strokes 画笔轨迹列表
+ * 淇濆瓨鐢荤瑪鏁版嵁
+ * @param {number} fileId 鏂囦欢ID
+ * @param {Array} strokes 鐢荤瑪杞ㄨ抗鍒楄〃
  * @returns {Promise}
  */
 export function savePaintData(fileId, strokes = []) {
@@ -261,5 +261,13 @@ export function savePaintData(fileId, strokes = []) {
     url: `/annotations/paint/${fileId}`,
     method: 'post',
     data: { strokes }
+  })
+}
+// LLM 一键应用模板
+export function applyTemplateLLM(templateId, fileId, payload = {}) {
+  return request({
+    url: `/templates/${templateId}/apply-llm`,
+    method: 'post',
+    data: { file_id: fileId, template_id: templateId, ...payload }
   })
 }

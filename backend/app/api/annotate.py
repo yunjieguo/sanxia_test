@@ -2,10 +2,12 @@
 from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File as FastAPIFile
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
-from typing import List
+from typing import List, Dict, Any
 import json
 import os
 import uuid
+import re
+import textwrap
 
 from ..database import get_db
 from ..models.annotation import Annotation, Template
@@ -22,13 +24,193 @@ from ..schemas.annotation import (
     TemplateListResponse,
     ApplyTemplateRequest,
     ApplyTemplateResponse,
+    ApplyTemplateLLMRequest,
+    ApplyTemplateLLMResponse,
     PaintData
 )
 from ..config import settings
 from ..services.ocr_engine import extract_text_blocks_with_fallback
+from ..services.llm_client import DashScopeClient
 
 router = APIRouter(prefix="/api/annotations", tags=["标注管理"])
 template_router = APIRouter(prefix="/api/templates", tags=["模板管理"])
+
+
+def _extract_plain_text(file_path: str, max_len: int = 6000) -> str:
+    """
+    提取带页码的纯文本，用于 LLM 提示词。
+    先尝试 PDF 文本层，无文本时会走 OCR 回退。
+    """
+    pages = extract_text_blocks_with_fallback(file_path) or []
+    parts: List[str] = []
+    for idx, blocks in enumerate(pages):
+        texts = [b.get("text", "") for b in blocks if b.get("text")]
+        if not texts:
+            continue
+        page_txt = f"[第{idx + 1}页]\n" + "\n".join(texts)
+        parts.append(page_txt)
+    content = "\n\n".join(parts)
+    if len(content) > max_len:
+        content = content[:max_len] + "\n...(截断)"
+    return content
+
+
+def _flatten_text_blocks(file_path: str, max_pages: int = 5, max_blocks: int = 200) -> List[Dict[str, Any]]:
+    """将带坐标的文本块拍平成列表，供 LLM 选择。"""
+    blocks_nested = extract_text_blocks_with_fallback(file_path)
+    flat: List[Dict[str, Any]] = []
+    for p_idx, page in enumerate(blocks_nested[:max_pages]):
+        for b_idx, blk in enumerate(page or []):
+            text = (blk.get("text") or "").strip()
+            bbox = blk.get("bbox")
+            if not text or not bbox or len(bbox) != 4:
+                continue
+            flat.append({
+                "id": f"p{p_idx+1}_b{b_idx+1}",
+                "page": p_idx + 1,
+                "bbox": [float(b) for b in bbox],
+                "text": text[:120]  # 避免过长
+            })
+            if len(flat) >= max_blocks:
+                return flat
+    return flat
+
+
+def _call_llm_extract_fields(template: Template, file: File, blocks: List[Dict[str, Any]]) -> Dict[str, Dict[str, Any]]:
+    """
+    调用 DashScope/Qwen（多模态）做字段抽取。
+    返回 {field_name: {value, page_number}}，未识别的字段不在结果中。
+    如果未配置 API KEY，会抛异常，让上层回退。
+    """
+    if not settings.DASHSCOPE_API_KEY:
+        raise RuntimeError("未配置 DASHSCOPE_API_KEY")
+
+    client = DashScopeClient(
+        api_key=settings.DASHSCOPE_API_KEY,
+        endpoint=settings.DASHSCOPE_ENDPOINT,
+        model_name=settings.QWEN_MODEL_NAME or "qwen-vl-max"
+    )
+
+    # 解析模板字段定义（模板存储为 JSON 字符串时先反序列化）
+    tpl_data = template.template_data
+    if isinstance(tpl_data, str):
+        try:
+            tpl_data = json.loads(tpl_data)
+        except Exception:
+            tpl_data = {}
+    if not isinstance(tpl_data, dict):
+        tpl_data = {}
+
+    template_fields = []
+    if tpl_data.get("fields"):
+        for f in tpl_data.get("fields", []):
+            template_fields.append({
+                "field_name": f.get("field_name"),
+                "field_type": f.get("field_type", "text")
+            })
+    else:
+        template_fields.append({"field_name": "contract_name", "field_type": "text"})
+
+    plain_text = _extract_plain_text(file.file_path)
+    blocks_text = json.dumps(blocks, ensure_ascii=False)
+    prompt = textwrap.dedent(f"""
+    你是文档抽取助手。请根据提供的带坐标文本块，抽取指定字段，给出值、页码和对应的 bbox。
+    字段列表：{template_fields}
+    文本块列表（含 bbox 与 page）：{blocks_text}
+    规则：
+    1) 仅从给定文本块中选择最匹配的块，返回其 bbox（[x0,y0,x1,y1]）与页码。
+    2) 输出 JSON，格式：{{"fields":[{{"field_name":"...","value":"...","page_number":1,"bbox":[x0,y0,x1,y1],"confidence":0.9}}...]}}
+    3) 若未找到可返回空字符串，但请保持 JSON 结构。
+    """).strip()
+
+    messages = [
+        {"role": "system", "content": "You are a helpful assistant for document information extraction. Respond in JSON only."},
+        {"role": "user", "content": prompt}
+    ]
+    data = client.generate(messages)
+
+    # 解析返回的 JSON 片段，兼容多种返回结构
+    content = ""
+    if isinstance(data, str):
+        content = data
+    else:
+        try:
+            output = data.get("output") if hasattr(data, "get") else None
+            # 只在 output 是字典时再取 choices
+            choices = None
+            if isinstance(output, dict):
+                choices = output.get("choices")
+            # 顶层 choices 兜底
+            if choices is None and hasattr(data, "get"):
+                choices = data.get("choices")
+            if choices:
+                first = choices[0]
+                if isinstance(first, str):
+                    content = first
+                elif isinstance(first, dict):
+                    content = first.get("message", {}).get("content", "") or first.get("content", "")
+            # 兼容 output_text 或 output 为字符串/列表
+            if not content:
+                if isinstance(output, str):
+                    content = output
+                elif isinstance(output, list):
+                    content = json.dumps(output, ensure_ascii=False)
+                elif hasattr(data, "get"):
+                    ot = data.get("output_text")
+                    if isinstance(ot, list):
+                        content = json.dumps(ot, ensure_ascii=False)
+                    else:
+                        content = ot or ""
+        except Exception:
+            content = ""
+
+    if not content:
+        raise RuntimeError("LLM 无返回内容")
+
+    json_str = ""
+    # 优先提取代码块内 JSON
+    if not isinstance(content, str):
+        content = json.dumps(content, ensure_ascii=False)
+
+    code_blocks = re.findall(r"```(?:json)?\s*(\{.*?\})\s*```", content, flags=re.S)
+    if code_blocks:
+        json_str = code_blocks[0]
+    else:
+        # 回退：直接找第一个 { 开始的 JSON
+        m = re.search(r"\{.*\}", content, flags=re.S)
+        if m:
+            json_str = m.group(0)
+    if not json_str:
+        raise RuntimeError(f"无法解析 LLM 返回: {content[:200]}")
+
+    parsed = json.loads(json_str)
+    if not isinstance(parsed, dict):
+        raise RuntimeError(f"LLM 返回非对象结构: {type(parsed).__name__}")
+
+    fields = parsed.get("fields") or []
+    result: Dict[str, Dict[str, Any]] = {}
+    for f in fields:
+        name = f.get("field_name")
+        val = f.get("value")
+        if not name or val is None:
+            continue
+        bbox = f.get("bbox")
+        coords = None
+        if isinstance(bbox, (list, tuple)) and len(bbox) == 4:
+            coords = {
+                "x": float(bbox[0]),
+                "y": float(bbox[1]),
+                "width": float(bbox[2]) - float(bbox[0]),
+                "height": float(bbox[3]) - float(bbox[1]),
+            }
+        result[name] = {
+            "value": val,
+            "page_number": f.get("page_number"),
+            "bbox": bbox if isinstance(bbox, (list, tuple)) else None,
+            "coords": coords,
+            "confidence": f.get("confidence")
+        }
+    return result
 
 
 def _to_response(annotation: Annotation) -> AnnotationResponse:
@@ -486,7 +668,8 @@ def _apply_template_to_file(
     template: Template,
     file: File,
     db: Session,
-    use_matching: bool = False
+    use_matching: bool = False,
+    llm_results: Optional[Dict[str, Dict[str, Any]]] = None
 ) -> ApplyTemplateResponse:
     """
     基于模板字段生成标注占位，预留匹配扩展。
@@ -506,6 +689,33 @@ def _apply_template_to_file(
     if use_matching and os.path.exists(file.file_path):
         text_blocks = extract_text_blocks_with_fallback(file.file_path)
 
+    # 预置字段关键词
+    preset_keywords = {
+        "contract_name": ["合同名称", "合同书", "合同名称：", "合同题目"],
+        "contract_date": ["合同日期", "签订日期", "签署日期", "签约日期"],
+        "contract_number": ["合同编号", "合同号", "编号", "编号："],
+        "contract_amount": ["合同金额", "总金额", "金额", "价款", "人民币", "价款总额"],
+        "party_a": ["甲方", "甲方名称", "需方", "购买方"],
+        "party_b": ["乙方", "乙方名称", "供方", "销售方"]
+    }
+    date_pattern = re.compile(r"\d{4}[./-年]?\s*\d{1,2}[./-月]?\s*\d{1,2}[日号]?")
+    number_pattern = re.compile(r"(合同编号[:：]?\s*[A-Za-z0-9\\-_/]+)")
+    amount_pattern = re.compile(r"[¥￥]?\s*\d[\\d,\\.]*\\s*元?")
+    party_pattern = re.compile(r"[甲乙]方[:：]\s*([\u4e00-\u9fa5A-Za-z0-9()（）·\s]+)")
+
+    POINTS_TO_PX = 96.0 / 72.0  # fitz 返回 point，前端 pdf.js 默认 96dpi
+
+    def _scale_coords(c: Dict[str, float]) -> Dict[str, float]:
+        return {
+            "x": c.get("x", 0) * POINTS_TO_PX,
+            "y": c.get("y", 0) * POINTS_TO_PX,
+            "width": c.get("width", 0) * POINTS_TO_PX,
+            "height": c.get("height", 0) * POINTS_TO_PX,
+            "font_size": c.get("font_size"),
+            "font_color": c.get("font_color"),
+            "font_family": c.get("font_family")
+        }
+
     def _match_field(field_def):
         # 默认坐标
         coords = field_def.get("coordinates") or {
@@ -520,10 +730,21 @@ def _apply_template_to_file(
         note = "未找到匹配，使用模板坐标"
         field_value = None
 
+        # 如果有 LLM 结果，优先使用 LLM 返回的坐标/值
+        if llm_results and field_def.get("field_name") in llm_results:
+            llm_item = llm_results[field_def.get("field_name")]
+            llm_coords = llm_item.get("coords")
+            llm_page = llm_item.get("page_number") or page_number
+            llm_value = llm_item.get("value") or field_value
+            llm_conf = llm_item.get("confidence") or 0.9
+            if llm_coords:
+                return _scale_coords(llm_coords), llm_page, llm_conf, "llm", "LLM 返回坐标", llm_value
+
         if not use_matching or not text_blocks:
             return coords, page_number, confidence, strategy, note, field_value
 
-        keywords = field_def.get("keywords") or [field_def.get("field_name", "")]
+        field_name = field_def.get("field_name", "")
+        keywords = field_def.get("keywords") or preset_keywords.get(field_name, []) or [field_name]
         keywords = [kw for kw in keywords if kw]
         anchor_offset = field_def.get("anchor_offset") or {}
         off_x = anchor_offset.get("x", 0)
@@ -555,7 +776,8 @@ def _apply_template_to_file(
                 continue
             page_blocks = text_blocks[p_idx]
             for blk_idx, blk in enumerate(page_blocks):
-                text_lower = (blk["text"] or "").lower()
+                raw_text = (blk.get("text") or "").strip()
+                text_lower = raw_text.lower()
                 hit_kw = None
                 for kw in keywords:
                     if kw.lower() in text_lower:
@@ -565,31 +787,102 @@ def _apply_template_to_file(
                     bbox = blk["bbox"]
                     width = coords.get("width") or (bbox[2] - bbox[0])
                     height = coords.get("height") or (bbox[3] - bbox[1])
+
+                    # 尝试合并同一行的下一个文本块，避免“甲方：”与公司名分离
+                    merged_bbox = [bbox[0], bbox[1], bbox[2], bbox[3]]
+                    merged_text = raw_text
+                    if blk_idx + 1 < len(page_blocks):
+                        nxt = page_blocks[blk_idx + 1]
+                        nbbox = nxt.get("bbox")
+                        ntext = (nxt.get("text") or "").strip()
+                        if nbbox and ntext:
+                            same_line = abs((nbbox[1] + nbbox[3]) / 2 - (bbox[1] + bbox[3]) / 2) < max(height, nbbox[3] - nbbox[1]) * 0.6
+                            if same_line:
+                                merged_text = (raw_text + " " + ntext).strip()
+                                merged_bbox[2] = max(merged_bbox[2], nbbox[2])
+                                merged_bbox[3] = max(merged_bbox[3], nbbox[3])
+                                width = coords.get("width") or (merged_bbox[2] - merged_bbox[0])
+                                height = coords.get("height") or (merged_bbox[3] - merged_bbox[1])
+
                     found = {
-                        "x": bbox[0] + off_x,
-                        "y": bbox[1] + off_y,
+                        "x": merged_bbox[0] + off_x,
+                        "y": merged_bbox[1] + off_y,
                         "width": width,
                         "height": height,
                         "page_number": p_idx + 1,
                         "keyword": hit_kw
                     }
 
-                    # 提取字段值：短文本取当前块，长文本尝试多行
+                    # 提取字段值：短文本取合并后的文本，长文本尝试多行
                     ftype = field_def.get("field_type")
                     if ftype == "long_text":
                         long_cfg = field_def.get("long_text") or {}
-                        field_value = _gather_long_text(page_blocks, blk_idx, long_cfg) or blk["text"].strip()
+                        field_value = _gather_long_text(page_blocks, blk_idx, long_cfg) or merged_text
                     elif ftype == "text":
-                        field_value = blk["text"].strip()
+                        field_value = merged_text
                     else:
                         field_value = field_def.get("field_value")
                     break
+                # 关键词未命中，尝试正则抽取特定字段
+                if not hit_kw and field_name:
+                    if field_name == "contract_date":
+                        m = date_pattern.search(raw_text)
+                        if m:
+                            found = {
+                                "x": blk["bbox"][0] + off_x,
+                                "y": blk["bbox"][1] + off_y,
+                                "width": coords.get("width") or (blk["bbox"][2] - blk["bbox"][0]),
+                                "height": coords.get("height") or (blk["bbox"][3] - blk["bbox"][1]),
+                                "page_number": p_idx + 1,
+                                "keyword": "regex_date"
+                            }
+                            field_value = m.group(0).strip()
+                            break
+                    elif field_name == "contract_number":
+                        m = number_pattern.search(raw_text)
+                        if m:
+                            found = {
+                                "x": blk["bbox"][0] + off_x,
+                                "y": blk["bbox"][1] + off_y,
+                                "width": coords.get("width") or (blk["bbox"][2] - blk["bbox"][0]),
+                                "height": coords.get("height") or (blk["bbox"][3] - blk["bbox"][1]),
+                                "page_number": p_idx + 1,
+                                "keyword": "regex_number"
+                            }
+                            field_value = m.group(0).replace("合同编号", "").replace("编号", "").replace("：", "").replace(":", "").strip()
+                            break
+                    elif field_name == "contract_amount":
+                        m = amount_pattern.search(raw_text)
+                        if m:
+                            found = {
+                                "x": blk["bbox"][0] + off_x,
+                                "y": blk["bbox"][1] + off_y,
+                                "width": coords.get("width") or (blk["bbox"][2] - blk["bbox"][0]),
+                                "height": coords.get("height") or (blk["bbox"][3] - blk["bbox"][1]),
+                                "page_number": p_idx + 1,
+                                "keyword": "regex_amount"
+                            }
+                            field_value = m.group(0).strip()
+                            break
+                    elif field_name in ("party_a", "party_b"):
+                        m = party_pattern.search(raw_text)
+                        if m:
+                            found = {
+                                "x": blk["bbox"][0] + off_x,
+                                "y": blk["bbox"][1] + off_y,
+                                "width": coords.get("width") or (blk["bbox"][2] - blk["bbox"][0]),
+                                "height": coords.get("height") or (blk["bbox"][3] - blk["bbox"][1]),
+                                "page_number": p_idx + 1,
+                                "keyword": "regex_party"
+                            }
+                            field_value = m.group(1).strip()
+                            break
             if found:
                 break
 
         if found:
             return (
-                {
+                _scale_coords({
                     "x": found["x"],
                     "y": found["y"],
                     "width": found["width"],
@@ -597,11 +890,11 @@ def _apply_template_to_file(
                     "font_size": coords.get("font_size"),
                     "font_color": coords.get("font_color"),
                     "font_family": coords.get("font_family")
-                },
+                }),
                 found["page_number"],
                 max(confidence, 0.8),
-                "keyword_offset",
-                f"命中关键词: {found['keyword']}",
+                "regex" if found.get("keyword", "").startswith("regex") else "keyword_offset",
+                f"命中关键词: {found.get('keyword')}" if found.get("keyword") else "正则匹配",
                 field_value
             )
 
@@ -728,6 +1021,69 @@ async def apply_template_matching(
         raise HTTPException(status_code=404, detail="文件不存在")
 
     return _apply_template_to_file(template, file, db, use_matching=True)
+
+
+@template_router.post("/{template_id}/apply-llm", response_model=ApplyTemplateResponse, summary="LLM 一键应用模板")
+async def apply_template_llm(
+    template_id: int,
+    request: ApplyTemplateLLMRequest,
+    db: Session = Depends(get_db)
+):
+    """
+    调用大模型抽取字段并回填标注：
+    1) 若配置了 DASHSCOPE_API_KEY，则调用 LLM 获取字段值；定位仍复用匹配/模板坐标。
+    2) 若未配置或调用失败，则回退到匹配逻辑。
+    """
+    # 兼容 body 未带 template_id 的情况
+    if request.template_id and request.template_id != template_id:
+        template_id = request.template_id
+
+    template = db.query(Template).filter(Template.id == template_id).first()
+    if not template:
+        raise HTTPException(status_code=404, detail="模板不存在")
+
+    file = db.query(File).filter(File.id == request.file_id).first()
+    if not file:
+        raise HTTPException(status_code=404, detail="文件不存在")
+
+    llm_fields: Dict[str, Dict[str, Any]] = {}
+    llm_notes: List[Dict[str, Any]] = []
+    llm_used = False
+
+    try:
+        blocks = _flatten_text_blocks(file.file_path)
+        llm_fields = _call_llm_extract_fields(template, file, blocks)
+        llm_used = True
+    except Exception as e:
+        # 未配置或调用异常，走回退
+        llm_notes.append({"note": f"LLM 回退: {e}"})
+
+    # 基础定位仍走匹配/模板坐标
+    resp = _apply_template_to_file(template, file, db, use_matching=True)
+
+    # 如果有 LLM 结果，填充字段值并标记策略
+    if llm_used and resp.extracted_data:
+        for item in resp.extracted_data:
+            if item["field_name"] in llm_fields:
+                item["field_value"] = llm_fields[item["field_name"]].get("value", item["field_value"])
+        # 增补 match_details 说明 LLM 参与
+        details = resp.match_details or []
+        for name, info in llm_fields.items():
+            details.append({
+                "field_name": name,
+                "page_number": info.get("page_number"),
+                "strategy": "llm",
+                "confidence": None,
+                "note": "LLM 抽取字段值"
+            })
+        details.extend(llm_notes)
+        resp.match_details = details
+
+    if llm_notes and not llm_used:
+        resp.message = f"{resp.message or '已回退匹配逻辑'}（LLM 未调用: {llm_notes[0]['note']}）"
+    else:
+        resp.message = resp.message or "LLM 一键应用完成"
+    return resp
 
 
 # ==================== 图片标注相关接口 ====================

@@ -251,7 +251,7 @@ class ApplyTemplateResponse(BaseModel):
 class ApplyTemplateLLMRequest(BaseModel):
     """使用大模型应用模板"""
     file_id: int = Field(..., description="目标文件ID")
-    template_id: int = Field(..., description="模板ID")
+    template_id: Optional[int] = Field(None, description="模板ID（可选，缺省时使用路径参数）")
     model_name: Optional[str] = Field(None, description="可覆盖默认模型名，如 qwen-vl-max")
     top_k: int = Field(default=1, ge=1, le=5, description="每字段返回的候选数量")
     image_width: int = Field(default=1024, ge=256, le=2048, description="传给模型的页面截图宽度上限")
