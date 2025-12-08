@@ -8,6 +8,7 @@ import os
 import uuid
 import re
 import textwrap
+import logging
 
 from ..database import get_db
 from ..models.annotation import Annotation, Template
@@ -31,6 +32,8 @@ from ..schemas.annotation import (
 from ..config import settings
 from ..services.ocr_engine import extract_text_blocks_with_fallback
 from ..services.llm_client import DashScopeClient
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/annotations", tags=["标注管理"])
 template_router = APIRouter(prefix="/api/templates", tags=["模板管理"])
@@ -704,8 +707,16 @@ def _apply_template_to_file(
     party_pattern = re.compile(r"(甲方|乙方)[:：]\s*([\u4e00-\u9fa5A-Za-z0-9()（）·\s]+)")
 
     def _looks_like_amount(text: str) -> bool:
-        t = text or ""
-        return ("¥" in t or "￥" in t or "元" in t or "人民币" in t or "万" in t) and re.search(r"\d", t) is not None
+        t = (text or "").strip()
+        if not t:
+            return False
+        # 含货币符号/单位
+        if ("¥" in t or "￥" in t or "元" in t or "人民币" in t or "万" in t) and re.search(r"\d", t):
+            return True
+        # 纯数字金额：含小数点或逗号，且不含日期分隔符
+        if any(ch in t for ch in [".", ","]) and not any(sep in t for sep in ["年", "月", "-", "/"]):
+            return re.search(r"\d", t) is not None
+        return False
 
     def _strict_date_match(text: str):
         """更严格的日期匹配，校验年月日范围，避免 30000.00 被误判。"""
@@ -790,10 +801,12 @@ def _apply_template_to_file(
             if field_def.get("field_name") in ("party_a", "party_b") and llm_value:
                 if not _is_expected_party(field_def.get("field_name"), str(llm_value)):
                     llm_coords = None  # 丢弃不符合的 LLM 结果
-            if llm_coords:
+            if llm_coords and llm_page:
+                logger.info(f"[LLM] {field_def.get('field_name')} page={llm_page} conf={llm_conf} value={llm_value}")
                 return [(_scale_coords(llm_coords), llm_page, llm_conf, "llm", "LLM 返回坐标", llm_value)]
 
         if not use_matching or not text_blocks:
+            logger.info(f"[MATCH] {field_def.get('field_name')} 未开启匹配，使用模板坐标 page={page_number}")
             return [(coords, page_number, confidence, "template_coordinates", note, field_value)]
 
         field_name = field_def.get("field_name", "")
@@ -974,8 +987,18 @@ def _apply_template_to_file(
                         fval
                     )
                 )
+                logger.info(f"[MATCH] {field_def.get('field_name')} hit page={fnd['page_number']} strategy={'regex' if fnd.get('keyword','').startswith('regex') else 'keyword'} value={fval}")
             return results
 
+        # 如果启用了匹配但未命中：
+        # 对甲/乙方不回退，避免无内容时仍落模板页；其他字段仍可回退模板坐标
+        if use_matching:
+            if field_name in ("party_a", "party_b"):
+                logger.info(f"[MATCH] {field_name} 未命中，跳过回退模板坐标")
+                return []
+            return [(coords, page_number, confidence, "template_coordinates", "未命中，回退模板坐标", field_value)]
+
+        # 未启用匹配时才回退模板坐标
         return [(coords, page_number, confidence, "template_coordinates", note, field_value)]
 
     for idx, field in enumerate(fields):
