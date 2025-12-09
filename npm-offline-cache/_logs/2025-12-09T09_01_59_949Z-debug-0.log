@@ -1,0 +1,14 @@
+0 verbose cli C:\nvm4w\nodejs\node.exe C:\nvm4w\nodejs\node_modules\npm\bin\npm-cli.js
+1 info using npm@10.7.0
+2 info using node@v20.15.1
+3 silly config:load:file:D:\software\nvm\v20.15.1\node_modules\npm\npmrc
+4 silly config:load:file:D:\wwwroot\demo\sanxia_demo\frontend\.npmrc
+5 silly config:load:file:C:\Users\Administrator\.npmrc
+6 silly config:load:file:C:\Users\Administrator\AppData\Roaming\npm\etc\npmrc
+7 verbose title npm run build
+8 verbose argv "run" "build"
+9 verbose logfile logs-max:10 dir:D:\wwwroot\demo\sanxia_demo\npm-offline-cache\_logs\2025-12-09T09_01_59_949Z-
+10 verbose logfile D:\wwwroot\demo\sanxia_demo\npm-offline-cache\_logs\2025-12-09T09_01_59_949Z-debug-0.log
+11 silly logfile done cleaning log files
+12 verbose exit 0
+13 info ok

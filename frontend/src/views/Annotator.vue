@@ -2221,24 +2221,50 @@ const exportAnnotatedPdf = async () => {
   }
 }
 
-// 懒加载 html2canvas（CDN 回退）
+// 懒加载 html2canvas（优先本地依赖，失败后使用 CDN 回退）
+let cachedHtml2canvas = null
 const loadHtml2Canvas = async () => {
-  if (window.html2canvas) return window.html2canvas
+  if (cachedHtml2canvas) return cachedHtml2canvas
+  if (window.html2canvas) {
+    cachedHtml2canvas = window.html2canvas
+    return cachedHtml2canvas
+  }
+  try {
+    const mod = await import('html2canvas')
+    cachedHtml2canvas = mod.default || mod.html2canvas || mod
+    return cachedHtml2canvas
+  } catch (localErr) {
+    console.warn('本地 html2canvas 加载失败，尝试 CDN 回退', localErr)
+  }
   try {
     const mod = await import(/* @vite-ignore */ 'https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js')
-    return mod.default || window.html2canvas || mod
+    cachedHtml2canvas = mod.default || window.html2canvas || mod
+    return cachedHtml2canvas
   } catch (e) {
     console.error('加载 html2canvas 失败', e)
     return null
   }
 }
 
-// 懒加载 jsPDF（CDN 回退）
+// 懒加载 jsPDF（优先本地依赖，失败后使用 CDN 回退）
+let cachedJsPdf = null
 const loadJspdf = async () => {
-  if (window.jspdf?.jsPDF) return window.jspdf.jsPDF
+  if (cachedJsPdf) return cachedJsPdf
+  if (window.jspdf?.jsPDF) {
+    cachedJsPdf = window.jspdf.jsPDF
+    return cachedJsPdf
+  }
+  try {
+    const mod = await import('jspdf')
+    cachedJsPdf = mod.jsPDF || mod.default?.jsPDF || mod.default || mod
+    return cachedJsPdf
+  } catch (localErr) {
+    console.warn('本地 jsPDF 加载失败，尝试 CDN 回退', localErr)
+  }
   try {
     const mod = await import(/* @vite-ignore */ 'https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js')
-    return mod.jsPDF || window.jspdf?.jsPDF || mod.default?.jsPDF
+    cachedJsPdf = mod.jsPDF || window.jspdf?.jsPDF || mod.default?.jsPDF
+    return cachedJsPdf
   } catch (e) {
     console.error('加载 jsPDF 失败', e)
     return null

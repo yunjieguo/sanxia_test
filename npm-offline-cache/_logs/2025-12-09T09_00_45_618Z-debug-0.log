@@ -1,0 +1,722 @@
+0 verbose cli C:\nvm4w\nodejs\node.exe C:\nvm4w\nodejs\node_modules\npm\bin\npm-cli.js
+1 info using npm@10.7.0
+2 info using node@v20.15.1
+3 silly config:load:file:D:\software\nvm\v20.15.1\node_modules\npm\npmrc
+4 silly config:load:file:D:\wwwroot\demo\sanxia_demo\frontend\.npmrc
+5 silly config:load:file:C:\Users\Administrator\.npmrc
+6 silly config:load:file:C:\Users\Administrator\AppData\Roaming\npm\etc\npmrc
+7 verbose title npm install html2canvas jspdf
+8 verbose argv "install" "html2canvas" "jspdf"
+9 verbose logfile logs-max:10 dir:D:\wwwroot\demo\sanxia_demo\npm-offline-cache\_logs\2025-12-09T09_00_45_618Z-
+10 verbose logfile D:\wwwroot\demo\sanxia_demo\npm-offline-cache\_logs\2025-12-09T09_00_45_618Z-debug-0.log
+11 silly logfile done cleaning log files
+12 silly idealTree buildDeps
+13 silly fetch manifest html2canvas@*
+14 http fetch GET 200 https://registry.npmjs.org/html2canvas 1098ms (cache miss)
+15 silly fetch manifest jspdf@*
+16 http fetch GET 200 https://registry.npmjs.org/jspdf 291ms (cache miss)
+17 silly placeDep ROOT html2canvas@1.4.1 OK for: pdf-doc-system-frontend@1.0.0 want: *
+18 silly placeDep ROOT jspdf@3.0.4 OK for: pdf-doc-system-frontend@1.0.0 want: *
+19 silly fetch manifest css-line-break@^2.1.0
+20 silly fetch manifest text-segmentation@^1.0.3
+21 silly fetch manifest @babel/runtime@^7.28.4
+22 silly fetch manifest fflate@^0.8.1
+23 silly fetch manifest fast-png@^6.2.0
+24 silly fetch manifest canvg@^3.0.11
+25 silly fetch manifest core-js@^3.6.0
+26 silly fetch manifest dompurify@^3.2.4
+27 http fetch GET 200 https://registry.npmjs.org/css-line-break 289ms (cache miss)
+28 http fetch GET 200 https://registry.npmjs.org/text-segmentation 889ms (cache miss)
+29 http fetch GET 200 https://registry.npmjs.org/canvg 1036ms (cache miss)
+30 http fetch GET 200 https://registry.npmjs.org/fast-png 1043ms (cache miss)
+31 http fetch GET 200 https://registry.npmjs.org/fflate 1087ms (cache miss)
+32 http fetch GET 200 https://registry.npmjs.org/dompurify 1130ms (cache miss)
+33 http fetch GET 200 https://registry.npmjs.org/@babel%2fruntime 1222ms (cache miss)
+34 http fetch GET 200 https://registry.npmjs.org/core-js 1256ms (cache miss)
+35 silly placeDep ROOT css-line-break@2.1.0 OK for: html2canvas@1.4.1 want: ^2.1.0
+36 silly placeDep ROOT text-segmentation@1.0.3 OK for: html2canvas@1.4.1 want: ^1.0.3
+37 silly fetch manifest utrie@^1.0.2
+38 http fetch GET 200 https://registry.npmjs.org/utrie 254ms (cache miss)
+39 silly placeDep ROOT utrie@1.0.2 OK for: css-line-break@2.1.0 want: ^1.0.2
+40 silly fetch manifest base64-arraybuffer@^1.0.2
+41 http fetch GET 200 https://registry.npmjs.org/base64-arraybuffer 265ms (cache miss)
+42 silly placeDep ROOT @babel/runtime@7.28.4 OK for: jspdf@3.0.4 want: ^7.28.4
+43 silly placeDep ROOT canvg@3.0.11 OK for: jspdf@3.0.4 want: ^3.0.11
+44 silly placeDep ROOT core-js@3.47.0 OK for: jspdf@3.0.4 want: ^3.6.0
+45 silly placeDep ROOT dompurify@3.3.1 OK for: jspdf@3.0.4 want: ^3.2.4
+46 silly placeDep ROOT fast-png@6.4.0 OK for: jspdf@3.0.4 want: ^6.2.0
+47 silly placeDep ROOT fflate@0.8.2 OK for: jspdf@3.0.4 want: ^0.8.1
+48 silly fetch manifest raf@^3.4.1
+49 silly fetch manifest core-js@^3.8.3
+50 silly fetch manifest rgbcolor@^1.0.1
+51 silly fetch manifest @types/raf@^3.4.0
+52 silly fetch manifest svg-pathdata@^6.0.3
+53 silly fetch manifest stackblur-canvas@^2.0.0
+54 silly fetch manifest regenerator-runtime@^0.13.7
+55 silly fetch manifest @types/trusted-types@^2.0.7
+56 silly fetch manifest pako@^2.1.0
+57 silly fetch manifest iobuffer@^5.3.2
+58 silly fetch manifest @types/pako@^2.0.3
+59 http fetch GET 200 https://registry.npmjs.org/stackblur-canvas 244ms (cache miss)
+60 http fetch GET 200 https://registry.npmjs.org/svg-pathdata 248ms (cache miss)
+61 http fetch GET 200 https://registry.npmjs.org/@types%2fraf 276ms (cache miss)
+62 http fetch GET 200 https://registry.npmjs.org/regenerator-runtime 276ms (cache miss)
+63 http fetch GET 200 https://registry.npmjs.org/raf 281ms (cache miss)
+64 http fetch GET 200 https://registry.npmjs.org/@types%2ftrusted-types 300ms (cache miss)
+65 http fetch GET 200 https://registry.npmjs.org/rgbcolor 305ms (cache miss)
+66 http fetch GET 200 https://registry.npmjs.org/pako 317ms (cache miss)
+67 http fetch GET 200 https://registry.npmjs.org/iobuffer 981ms (cache miss)
+68 http fetch GET 200 https://registry.npmjs.org/@types%2fpako 1026ms (cache miss)
+69 silly placeDep ROOT @types/raf@3.4.3 OK for: canvg@3.0.11 want: ^3.4.0
+70 silly placeDep ROOT raf@3.4.1 OK for: canvg@3.0.11 want: ^3.4.1
+71 silly placeDep ROOT regenerator-runtime@0.13.11 OK for: canvg@3.0.11 want: ^0.13.7
+72 silly placeDep ROOT rgbcolor@1.0.1 OK for: canvg@3.0.11 want: ^1.0.1
+73 silly placeDep ROOT stackblur-canvas@2.7.0 OK for: canvg@3.0.11 want: ^2.0.0
+74 silly placeDep ROOT svg-pathdata@6.0.3 OK for: canvg@3.0.11 want: ^6.0.3
+75 silly fetch manifest performance-now@^2.1.0
+76 http fetch GET 200 https://registry.npmjs.org/performance-now 223ms (cache miss)
+77 silly placeDep ROOT @types/trusted-types@2.0.7 OK for: dompurify@3.3.1 want: ^2.0.7
+78 silly placeDep ROOT @types/pako@2.0.4 OK for: fast-png@6.4.0 want: ^2.0.3
+79 silly placeDep ROOT iobuffer@5.4.0 OK for: fast-png@6.4.0 want: ^5.3.2
+80 silly placeDep ROOT pako@2.1.0 OK for: fast-png@6.4.0 want: ^2.1.0
+81 silly placeDep ROOT performance-now@2.1.0 OK for: raf@3.4.1 want: ^2.1.0
+82 silly placeDep ROOT base64-arraybuffer@1.0.2 OK for: utrie@1.0.2 want: ^1.0.2
+83 silly reify moves {}
+84 silly audit bulk request {
+84 silly audit   '@babel/helper-string-parser': [ '7.27.1' ],
+84 silly audit   '@babel/helper-validator-identifier': [ '7.28.5' ],
+84 silly audit   '@babel/parser': [ '7.28.5' ],
+84 silly audit   '@babel/types': [ '7.28.5' ],
+84 silly audit   '@ctrl/tinycolor': [ '3.6.1' ],
+84 silly audit   '@element-plus/icons-vue': [ '2.3.2' ],
+84 silly audit   '@esbuild/aix-ppc64': [ '0.21.5' ],
+84 silly audit   '@esbuild/android-arm': [ '0.21.5' ],
+84 silly audit   '@esbuild/android-arm64': [ '0.21.5' ],
+84 silly audit   '@esbuild/android-x64': [ '0.21.5' ],
+84 silly audit   '@esbuild/darwin-arm64': [ '0.21.5' ],
+84 silly audit   '@esbuild/darwin-x64': [ '0.21.5' ],
+84 silly audit   '@esbuild/freebsd-arm64': [ '0.21.5' ],
+84 silly audit   '@esbuild/freebsd-x64': [ '0.21.5' ],
+84 silly audit   '@esbuild/linux-arm': [ '0.21.5' ],
+84 silly audit   '@esbuild/linux-arm64': [ '0.21.5' ],
+84 silly audit   '@esbuild/linux-ia32': [ '0.21.5' ],
+84 silly audit   '@esbuild/linux-loong64': [ '0.21.5' ],
+84 silly audit   '@esbuild/linux-mips64el': [ '0.21.5' ],
+84 silly audit   '@esbuild/linux-ppc64': [ '0.21.5' ],
+84 silly audit   '@esbuild/linux-riscv64': [ '0.21.5' ],
+84 silly audit   '@esbuild/linux-s390x': [ '0.21.5' ],
+84 silly audit   '@esbuild/linux-x64': [ '0.21.5' ],
+84 silly audit   '@esbuild/netbsd-x64': [ '0.21.5' ],
+84 silly audit   '@esbuild/openbsd-x64': [ '0.21.5' ],
+84 silly audit   '@esbuild/sunos-x64': [ '0.21.5' ],
+84 silly audit   '@esbuild/win32-arm64': [ '0.21.5' ],
+84 silly audit   '@esbuild/win32-ia32': [ '0.21.5' ],
+84 silly audit   '@esbuild/win32-x64': [ '0.21.5' ],
+84 silly audit   '@floating-ui/core': [ '1.7.3' ],
+84 silly audit   '@floating-ui/dom': [ '1.7.4' ],
+84 silly audit   '@floating-ui/utils': [ '0.2.10' ],
+84 silly audit   '@jridgewell/sourcemap-codec': [ '1.5.5' ],
+84 silly audit   '@mapbox/node-pre-gyp': [ '1.0.11' ],
+84 silly audit   '@parcel/watcher': [ '2.5.1' ],
+84 silly audit   '@parcel/watcher-android-arm64': [ '2.5.1' ],
+84 silly audit   '@parcel/watcher-darwin-arm64': [ '2.5.1' ],
+84 silly audit   '@parcel/watcher-darwin-x64': [ '2.5.1' ],
+84 silly audit   '@parcel/watcher-freebsd-x64': [ '2.5.1' ],
+84 silly audit   '@parcel/watcher-linux-arm-glibc': [ '2.5.1' ],
+84 silly audit   '@parcel/watcher-linux-arm-musl': [ '2.5.1' ],
+84 silly audit   '@parcel/watcher-linux-arm64-glibc': [ '2.5.1' ],
+84 silly audit   '@parcel/watcher-linux-arm64-musl': [ '2.5.1' ],
+84 silly audit   '@parcel/watcher-linux-x64-glibc': [ '2.5.1' ],
+84 silly audit   '@parcel/watcher-linux-x64-musl': [ '2.5.1' ],
+84 silly audit   '@parcel/watcher-win32-arm64': [ '2.5.1' ],
+84 silly audit   '@parcel/watcher-win32-ia32': [ '2.5.1' ],
+84 silly audit   '@parcel/watcher-win32-x64': [ '2.5.1' ],
+84 silly audit   'detect-libc': [ '1.0.3', '2.1.2' ],
+84 silly audit   '@sxzz/popperjs-es': [ '2.11.7' ],
+84 silly audit   '@rollup/rollup-android-arm-eabi': [ '4.53.3' ],
+84 silly audit   '@rollup/rollup-android-arm64': [ '4.53.3' ],
+84 silly audit   '@rollup/rollup-darwin-arm64': [ '4.53.3' ],
+84 silly audit   '@rollup/rollup-darwin-x64': [ '4.53.3' ],
+84 silly audit   '@rollup/rollup-freebsd-arm64': [ '4.53.3' ],
+84 silly audit   '@rollup/rollup-freebsd-x64': [ '4.53.3' ],
+84 silly audit   '@rollup/rollup-linux-arm-gnueabihf': [ '4.53.3' ],
+84 silly audit   '@rollup/rollup-linux-arm-musleabihf': [ '4.53.3' ],
+84 silly audit   '@rollup/rollup-linux-arm64-gnu': [ '4.53.3' ],
+84 silly audit   '@rollup/rollup-linux-arm64-musl': [ '4.53.3' ],
+84 silly audit   '@rollup/rollup-linux-loong64-gnu': [ '4.53.3' ],
+84 silly audit   '@rollup/rollup-linux-ppc64-gnu': [ '4.53.3' ],
+84 silly audit   '@rollup/rollup-linux-riscv64-gnu': [ '4.53.3' ],
+84 silly audit   '@rollup/rollup-linux-riscv64-musl': [ '4.53.3' ],
+84 silly audit   '@rollup/rollup-linux-s390x-gnu': [ '4.53.3' ],
+84 silly audit   '@rollup/rollup-linux-x64-gnu': [ '4.53.3' ],
+84 silly audit   '@rollup/rollup-linux-x64-musl': [ '4.53.3' ],
+84 silly audit   '@rollup/rollup-openharmony-arm64': [ '4.53.3' ],
+84 silly audit   '@rollup/rollup-win32-arm64-msvc': [ '4.53.3' ],
+84 silly audit   '@rollup/rollup-win32-ia32-msvc': [ '4.53.3' ],
+84 silly audit   '@rollup/rollup-win32-x64-gnu': [ '4.53.3' ],
+84 silly audit   '@rollup/rollup-win32-x64-msvc': [ '4.53.3' ],
+84 silly audit   '@tootallnate/once': [ '2.0.0' ],
+84 silly audit   '@types/estree': [ '1.0.8' ],
+84 silly audit   '@types/lodash': [ '4.17.21' ],
+84 silly audit   '@types/lodash-es': [ '4.17.12' ],
+84 silly audit   '@types/web-bluetooth': [ '0.0.16' ],
+84 silly audit   '@vitejs/plugin-vue': [ '4.6.2' ],
+84 silly audit   '@vue/compiler-core': [ '3.5.25' ],
+84 silly audit   '@vue/compiler-dom': [ '3.5.25' ],
+84 silly audit   '@vue/compiler-sfc': [ '3.5.25' ],
+84 silly audit   '@vue/compiler-ssr': [ '3.5.25' ],
+84 silly audit   '@vue/devtools-api': [ '6.6.4' ],
+84 silly audit   '@vue/reactivity': [ '3.5.25' ],
+84 silly audit   '@vue/runtime-core': [ '3.5.25' ],
+84 silly audit   '@vue/runtime-dom': [ '3.5.25' ],
+84 silly audit   '@vue/server-renderer': [ '3.5.25' ],
+84 silly audit   '@vue/shared': [ '3.5.25' ],
+84 silly audit   '@vueuse/core': [ '9.13.0' ],
+84 silly audit   '@vueuse/metadata': [ '9.13.0' ],
+84 silly audit   '@vueuse/shared': [ '9.13.0' ],
+84 silly audit   abab: [ '2.0.6' ],
+84 silly audit   abbrev: [ '1.1.1' ],
+84 silly audit   acorn: [ '8.15.0', '7.4.1' ],
+84 silly audit   'acorn-globals': [ '6.0.0' ],
+84 silly audit   'acorn-walk': [ '7.2.0' ],
+84 silly audit   'agent-base': [ '6.0.2' ],
+84 silly audit   'ansi-regex': [ '5.0.1' ],
+84 silly audit   aproba: [ '2.1.0' ],
+84 silly audit   'are-we-there-yet': [ '2.0.0' ],
+84 silly audit   'async-validator': [ '4.2.5' ],
+84 silly audit   asynckit: [ '0.4.0' ],
+84 silly audit   axios: [ '1.13.2' ],
+84 silly audit   'balanced-match': [ '1.0.2' ],
+84 silly audit   'brace-expansion': [ '1.1.12' ],
+84 silly audit   braces: [ '3.0.3' ],
+84 silly audit   'browser-process-hrtime': [ '1.0.0' ],
+84 silly audit   'call-bind-apply-helpers': [ '1.0.2' ],
+84 silly audit   canvas: [ '2.11.2' ],
+84 silly audit   chokidar: [ '4.0.3' ],
+84 silly audit   chownr: [ '2.0.0' ],
+84 silly audit   'color-support': [ '1.1.3' ],
+84 silly audit   'combined-stream': [ '1.0.8' ],
+84 silly audit   'concat-map': [ '0.0.1' ],
+84 silly audit   'console-control-strings': [ '1.1.0' ],
+84 silly audit   cssom: [ '0.5.0', '0.3.8' ],
+84 silly audit   cssstyle: [ '2.3.0' ],
+84 silly audit   csstype: [ '3.2.3' ],
+84 silly audit   'data-urls': [ '3.0.2' ],
+84 silly audit   'whatwg-url': [ '11.0.0', '5.0.0', '10.0.0' ],
+84 silly audit   dayjs: [ '1.11.19' ],
+84 silly audit   debug: [ '4.4.3' ],
+84 silly audit   'decimal.js': [ '10.6.0' ],
+84 silly audit   'decompress-response': [ '4.2.1' ],
+84 silly audit   'delayed-stream': [ '1.0.0' ],
+84 silly audit   delegates: [ '1.0.0' ],
+84 silly audit   domexception: [ '4.0.0' ],
+84 silly audit   'dunder-proto': [ '1.0.1' ],
+84 silly audit   'element-plus': [ '2.11.9' ],
+84 silly audit   'emoji-regex': [ '8.0.0' ],
+84 silly audit   entities: [ '4.5.0' ],
+84 silly audit   'es-define-property': [ '1.0.1' ],
+84 silly audit   'es-errors': [ '1.3.0' ],
+84 silly audit   'es-object-atoms': [ '1.1.1' ],
+84 silly audit   'es-set-tostringtag': [ '2.1.0' ],
+84 silly audit   esbuild: [ '0.21.5' ],
+84 silly audit   escodegen: [ '2.1.0' ],
+84 silly audit   esprima: [ '4.0.1' ],
+84 silly audit   estraverse: [ '5.3.0' ],
+84 silly audit   'estree-walker': [ '2.0.2' ],
+84 silly audit   esutils: [ '2.0.3' ],
+84 silly audit   fabric: [ '5.5.2' ],
+84 silly audit   'fill-range': [ '7.1.1' ],
+84 silly audit   'follow-redirects': [ '1.15.11' ],
+84 silly audit   'form-data': [ '4.0.5' ],
+84 silly audit   'fs-minipass': [ '2.1.0' ],
+84 silly audit   minipass: [ '3.3.6', '5.0.0' ],
+84 silly audit   'fs.realpath': [ '1.0.0' ],
+84 silly audit   fsevents: [ '2.3.3' ],
+84 silly audit   'function-bind': [ '1.1.2' ],
+84 silly audit   gauge: [ '3.0.2' ],
+84 silly audit   'get-intrinsic': [ '1.3.0' ],
+84 silly audit   'get-proto': [ '1.0.1' ],
+84 silly audit   glob: [ '7.2.3' ],
+84 silly audit   gopd: [ '1.2.0' ],
+84 silly audit   'has-symbols': [ '1.1.0' ],
+84 silly audit   'has-tostringtag': [ '1.0.2' ],
+84 silly audit   'has-unicode': [ '2.0.1' ],
+84 silly audit   hasown: [ '2.0.2' ],
+84 silly audit   'html-encoding-sniffer': [ '3.0.0' ],
+84 silly audit   'http-proxy-agent': [ '5.0.0' ],
+84 silly audit   'https-proxy-agent': [ '5.0.1' ],
+84 silly audit   'iconv-lite': [ '0.6.3' ],
+84 silly audit   immutable: [ '5.1.4' ],
+84 silly audit   inflight: [ '1.0.6' ],
+84 silly audit   inherits: [ '2.0.4' ],
+84 silly audit   'is-extglob': [ '2.1.1' ],
+84 silly audit   'is-fullwidth-code-point': [ '3.0.0' ],
+84 silly audit   'is-glob': [ '4.0.3' ],
+84 silly audit   'is-number': [ '7.0.0' ],
+84 silly audit   'is-potential-custom-element-name': [ '1.0.1' ],
+84 silly audit   jsdom: [ '19.0.0' ],
+84 silly audit   lodash: [ '4.17.21' ],
+84 silly audit   'lodash-es': [ '4.17.21' ],
+84 silly audit   'lodash-unified': [ '1.0.3' ],
+84 silly audit   'magic-string': [ '0.30.21' ],
+84 silly audit   'make-dir': [ '3.1.0' ],
+84 silly audit   semver: [ '6.3.1', '7.7.3' ],
+84 silly audit   'math-intrinsics': [ '1.1.0' ],
+84 silly audit   'memoize-one': [ '6.0.0' ],
+84 silly audit   micromatch: [ '4.0.8' ],
+84 silly audit   'mime-db': [ '1.52.0' ],
+84 silly audit   'mime-types': [ '2.1.35' ],
+84 silly audit   'mimic-response': [ '2.1.0' ],
+84 silly audit   minimatch: [ '3.1.2' ],
+84 silly audit   minizlib: [ '2.1.2' ],
+84 silly audit   mkdirp: [ '1.0.4' ],
+84 silly audit   ms: [ '2.1.3' ],
+84 silly audit   nan: [ '2.23.1' ],
+84 silly audit   nanoid: [ '3.3.11' ],
+84 silly audit   'node-addon-api': [ '7.1.1' ],
+84 silly audit   'node-fetch': [ '2.7.0' ],
+84 silly audit   tr46: [ '0.0.3', '3.0.0' ],
+84 silly audit   'webidl-conversions': [ '3.0.1', '7.0.0' ],
+84 silly audit   nopt: [ '5.0.0' ],
+84 silly audit   'normalize-wheel-es': [ '1.2.0' ],
+84 silly audit   npmlog: [ '5.0.1' ],
+84 silly audit   nwsapi: [ '2.2.22' ],
+84 silly audit   'object-assign': [ '4.1.1' ],
+84 silly audit   once: [ '1.4.0' ],
+84 silly audit   parse5: [ '6.0.1' ],
+84 silly audit   'path-is-absolute': [ '1.0.1' ],
+84 silly audit   picocolors: [ '1.1.1' ],
+84 silly audit   picomatch: [ '2.3.1' ],
+84 silly audit   pinia: [ '2.3.1' ],
+84 silly audit   postcss: [ '8.5.6' ],
+84 silly audit   'proxy-from-env': [ '1.1.0' ],
+84 silly audit   psl: [ '1.15.0' ],
+84 silly audit   punycode: [ '2.3.1' ],
+84 silly audit   querystringify: [ '2.2.0' ],
+84 silly audit   'readable-stream': [ '3.6.2' ],
+84 silly audit   readdirp: [ '4.1.2' ],
+84 silly audit   'requires-port': [ '1.0.0' ],
+84 silly audit   rimraf: [ '3.0.2' ],
+84 silly audit   rollup: [ '4.53.3' ],
+84 silly audit   'safe-buffer': [ '5.2.1' ],
+84 silly audit   'safer-buffer': [ '2.1.2' ],
+84 silly audit   sass: [ '1.94.2' ],
+84 silly audit   saxes: [ '5.0.1' ],
+84 silly audit   'set-blocking': [ '2.0.0' ],
+84 silly audit   'signal-exit': [ '3.0.7' ],
+84 silly audit   'simple-concat': [ '1.0.1' ],
+84 silly audit   'simple-get': [ '3.1.1' ],
+84 silly audit   'source-map': [ '0.6.1' ],
+84 silly audit   'source-map-js': [ '1.2.1' ],
+84 silly audit   string_decoder: [ '1.3.0' ],
+84 silly audit   'string-width': [ '4.2.3' ],
+84 silly audit   'strip-ansi': [ '6.0.1' ],
+84 silly audit   'symbol-tree': [ '3.2.4' ],
+84 silly audit   tar: [ '6.2.1' ],
+84 silly audit   'to-regex-range': [ '5.0.1' ],
+84 silly audit   'tough-cookie': [ '4.1.4' ],
+84 silly audit   universalify: [ '0.2.0' ],
+84 silly audit   'url-parse': [ '1.5.10' ],
+84 silly audit   'util-deprecate': [ '1.0.2' ],
+84 silly audit   vite: [ '5.4.21' ],
+84 silly audit   vue: [ '3.5.25' ],
+84 silly audit   'vue-demi': [ '0.14.10' ],
+84 silly audit   'vue-pdf-embed': [ '1.2.1' ],
+84 silly audit   'vue-router': [ '4.6.3' ],
+84 silly audit   'w3c-hr-time': [ '1.0.2' ],
+84 silly audit   'w3c-xmlserializer': [ '3.0.0' ],
+84 silly audit   'whatwg-encoding': [ '2.0.0' ],
+84 silly audit   'whatwg-mimetype': [ '3.0.0' ],
+84 silly audit   'wide-align': [ '1.1.5' ],
+84 silly audit   wrappy: [ '1.0.2' ],
+84 silly audit   ws: [ '8.18.3' ],
+84 silly audit   'xml-name-validator': [ '4.0.0' ],
+84 silly audit   xmlchars: [ '2.2.0' ],
+84 silly audit   yallist: [ '4.0.0' ],
+84 silly audit   html2canvas: [ '1.4.1' ],
+84 silly audit   jspdf: [ '3.0.4' ],
+84 silly audit   'css-line-break': [ '2.1.0' ],
+84 silly audit   'text-segmentation': [ '1.0.3' ],
+84 silly audit   utrie: [ '1.0.2' ],
+84 silly audit   '@babel/runtime': [ '7.28.4' ],
+84 silly audit   canvg: [ '3.0.11' ],
+84 silly audit   'core-js': [ '3.47.0' ],
+84 silly audit   dompurify: [ '3.3.1' ],
+84 silly audit   'fast-png': [ '6.4.0' ],
+84 silly audit   fflate: [ '0.8.2' ],
+84 silly audit   '@types/raf': [ '3.4.3' ],
+84 silly audit   raf: [ '3.4.1' ],
+84 silly audit   'regenerator-runtime': [ '0.13.11' ],
+84 silly audit   rgbcolor: [ '1.0.1' ],
+84 silly audit   'stackblur-canvas': [ '2.7.0' ],
+84 silly audit   'svg-pathdata': [ '6.0.3' ],
+84 silly audit   '@types/trusted-types': [ '2.0.7' ],
+84 silly audit   '@types/pako': [ '2.0.4' ],
+84 silly audit   iobuffer: [ '5.4.0' ],
+84 silly audit   pako: [ '2.1.0' ],
+84 silly audit   'performance-now': [ '2.1.0' ],
+84 silly audit   'base64-arraybuffer': [ '1.0.2' ]
+84 silly audit }
+85 verbose reify failed optional dependency D:\wwwroot\demo\sanxia_demo\frontend\node_modules\fsevents
+86 silly reify mark deleted [ 'D:\\wwwroot\\demo\\sanxia_demo\\frontend\\node_modules\\fsevents' ]
+87 verbose reify failed optional dependency D:\wwwroot\demo\sanxia_demo\frontend\node_modules\@rollup\rollup-win32-ia32-msvc
+88 silly reify mark deleted [
+88 silly reify   'D:\\wwwroot\\demo\\sanxia_demo\\frontend\\node_modules\\@rollup\\rollup-win32-ia32-msvc'
+88 silly reify ]
+89 verbose reify failed optional dependency D:\wwwroot\demo\sanxia_demo\frontend\node_modules\@rollup\rollup-win32-arm64-msvc
+90 silly reify mark deleted [
+90 silly reify   'D:\\wwwroot\\demo\\sanxia_demo\\frontend\\node_modules\\@rollup\\rollup-win32-arm64-msvc'
+90 silly reify ]
+91 verbose reify failed optional dependency D:\wwwroot\demo\sanxia_demo\frontend\node_modules\@rollup\rollup-openharmony-arm64
+92 silly reify mark deleted [
+92 silly reify   'D:\\wwwroot\\demo\\sanxia_demo\\frontend\\node_modules\\@rollup\\rollup-openharmony-arm64'
+92 silly reify ]
+93 verbose reify failed optional dependency D:\wwwroot\demo\sanxia_demo\frontend\node_modules\@rollup\rollup-linux-x64-musl
+94 silly reify mark deleted [
+94 silly reify   'D:\\wwwroot\\demo\\sanxia_demo\\frontend\\node_modules\\@rollup\\rollup-linux-x64-musl'
+94 silly reify ]
+95 verbose reify failed optional dependency D:\wwwroot\demo\sanxia_demo\frontend\node_modules\@rollup\rollup-linux-x64-gnu
+96 silly reify mark deleted [
+96 silly reify   'D:\\wwwroot\\demo\\sanxia_demo\\frontend\\node_modules\\@rollup\\rollup-linux-x64-gnu'
+96 silly reify ]
+97 verbose reify failed optional dependency D:\wwwroot\demo\sanxia_demo\frontend\node_modules\@rollup\rollup-linux-s390x-gnu
+98 silly reify mark deleted [
+98 silly reify   'D:\\wwwroot\\demo\\sanxia_demo\\frontend\\node_modules\\@rollup\\rollup-linux-s390x-gnu'
+98 silly reify ]
+99 verbose reify failed optional dependency D:\wwwroot\demo\sanxia_demo\frontend\node_modules\@rollup\rollup-linux-riscv64-musl
+100 silly reify mark deleted [
+100 silly reify   'D:\\wwwroot\\demo\\sanxia_demo\\frontend\\node_modules\\@rollup\\rollup-linux-riscv64-musl'
+100 silly reify ]
+101 verbose reify failed optional dependency D:\wwwroot\demo\sanxia_demo\frontend\node_modules\@rollup\rollup-linux-riscv64-gnu
+102 silly reify mark deleted [
+102 silly reify   'D:\\wwwroot\\demo\\sanxia_demo\\frontend\\node_modules\\@rollup\\rollup-linux-riscv64-gnu'
+102 silly reify ]
+103 verbose reify failed optional dependency D:\wwwroot\demo\sanxia_demo\frontend\node_modules\@rollup\rollup-linux-ppc64-gnu
+104 silly reify mark deleted [
+104 silly reify   'D:\\wwwroot\\demo\\sanxia_demo\\frontend\\node_modules\\@rollup\\rollup-linux-ppc64-gnu'
+104 silly reify ]
+105 verbose reify failed optional dependency D:\wwwroot\demo\sanxia_demo\frontend\node_modules\@rollup\rollup-linux-loong64-gnu
+106 silly reify mark deleted [
+106 silly reify   'D:\\wwwroot\\demo\\sanxia_demo\\frontend\\node_modules\\@rollup\\rollup-linux-loong64-gnu'
+106 silly reify ]
+107 verbose reify failed optional dependency D:\wwwroot\demo\sanxia_demo\frontend\node_modules\@rollup\rollup-linux-arm64-musl
+108 silly reify mark deleted [
+108 silly reify   'D:\\wwwroot\\demo\\sanxia_demo\\frontend\\node_modules\\@rollup\\rollup-linux-arm64-musl'
+108 silly reify ]
+109 verbose reify failed optional dependency D:\wwwroot\demo\sanxia_demo\frontend\node_modules\@rollup\rollup-linux-arm64-gnu
+110 silly reify mark deleted [
+110 silly reify   'D:\\wwwroot\\demo\\sanxia_demo\\frontend\\node_modules\\@rollup\\rollup-linux-arm64-gnu'
+110 silly reify ]
+111 verbose reify failed optional dependency D:\wwwroot\demo\sanxia_demo\frontend\node_modules\@rollup\rollup-linux-arm-musleabihf
+112 silly reify mark deleted [
+112 silly reify   'D:\\wwwroot\\demo\\sanxia_demo\\frontend\\node_modules\\@rollup\\rollup-linux-arm-musleabihf'
+112 silly reify ]
+113 verbose reify failed optional dependency D:\wwwroot\demo\sanxia_demo\frontend\node_modules\@rollup\rollup-linux-arm-gnueabihf
+114 silly reify mark deleted [
+114 silly reify   'D:\\wwwroot\\demo\\sanxia_demo\\frontend\\node_modules\\@rollup\\rollup-linux-arm-gnueabihf'
+114 silly reify ]
+115 verbose reify failed optional dependency D:\wwwroot\demo\sanxia_demo\frontend\node_modules\@rollup\rollup-freebsd-x64
+116 silly reify mark deleted [
+116 silly reify   'D:\\wwwroot\\demo\\sanxia_demo\\frontend\\node_modules\\@rollup\\rollup-freebsd-x64'
+116 silly reify ]
+117 verbose reify failed optional dependency D:\wwwroot\demo\sanxia_demo\frontend\node_modules\@rollup\rollup-freebsd-arm64
+118 silly reify mark deleted [
+118 silly reify   'D:\\wwwroot\\demo\\sanxia_demo\\frontend\\node_modules\\@rollup\\rollup-freebsd-arm64'
+118 silly reify ]
+119 verbose reify failed optional dependency D:\wwwroot\demo\sanxia_demo\frontend\node_modules\@rollup\rollup-darwin-x64
+120 silly reify mark deleted [
+120 silly reify   'D:\\wwwroot\\demo\\sanxia_demo\\frontend\\node_modules\\@rollup\\rollup-darwin-x64'
+120 silly reify ]
+121 verbose reify failed optional dependency D:\wwwroot\demo\sanxia_demo\frontend\node_modules\@rollup\rollup-darwin-arm64
+122 silly reify mark deleted [
+122 silly reify   'D:\\wwwroot\\demo\\sanxia_demo\\frontend\\node_modules\\@rollup\\rollup-darwin-arm64'
+122 silly reify ]
+123 verbose reify failed optional dependency D:\wwwroot\demo\sanxia_demo\frontend\node_modules\@rollup\rollup-android-arm64
+124 silly reify mark deleted [
+124 silly reify   'D:\\wwwroot\\demo\\sanxia_demo\\frontend\\node_modules\\@rollup\\rollup-android-arm64'
+124 silly reify ]
+125 verbose reify failed optional dependency D:\wwwroot\demo\sanxia_demo\frontend\node_modules\@rollup\rollup-android-arm-eabi
+126 silly reify mark deleted [
+126 silly reify   'D:\\wwwroot\\demo\\sanxia_demo\\frontend\\node_modules\\@rollup\\rollup-android-arm-eabi'
+126 silly reify ]
+127 verbose reify failed optional dependency D:\wwwroot\demo\sanxia_demo\frontend\node_modules\@parcel\watcher-win32-ia32
+128 silly reify mark deleted [
+128 silly reify   'D:\\wwwroot\\demo\\sanxia_demo\\frontend\\node_modules\\@parcel\\watcher-win32-ia32'
+128 silly reify ]
+129 verbose reify failed optional dependency D:\wwwroot\demo\sanxia_demo\frontend\node_modules\@parcel\watcher-win32-arm64
+130 silly reify mark deleted [
+130 silly reify   'D:\\wwwroot\\demo\\sanxia_demo\\frontend\\node_modules\\@parcel\\watcher-win32-arm64'
+130 silly reify ]
+131 verbose reify failed optional dependency D:\wwwroot\demo\sanxia_demo\frontend\node_modules\@parcel\watcher-linux-x64-musl
+132 silly reify mark deleted [
+132 silly reify   'D:\\wwwroot\\demo\\sanxia_demo\\frontend\\node_modules\\@parcel\\watcher-linux-x64-musl'
+132 silly reify ]
+133 verbose reify failed optional dependency D:\wwwroot\demo\sanxia_demo\frontend\node_modules\@parcel\watcher-linux-x64-glibc
+134 silly reify mark deleted [
+134 silly reify   'D:\\wwwroot\\demo\\sanxia_demo\\frontend\\node_modules\\@parcel\\watcher-linux-x64-glibc'
+134 silly reify ]
+135 verbose reify failed optional dependency D:\wwwroot\demo\sanxia_demo\frontend\node_modules\@parcel\watcher-linux-arm64-musl
+136 silly reify mark deleted [
+136 silly reify   'D:\\wwwroot\\demo\\sanxia_demo\\frontend\\node_modules\\@parcel\\watcher-linux-arm64-musl'
+136 silly reify ]
+137 verbose reify failed optional dependency D:\wwwroot\demo\sanxia_demo\frontend\node_modules\@parcel\watcher-linux-arm64-glibc
+138 silly reify mark deleted [
+138 silly reify   'D:\\wwwroot\\demo\\sanxia_demo\\frontend\\node_modules\\@parcel\\watcher-linux-arm64-glibc'
+138 silly reify ]
+139 verbose reify failed optional dependency D:\wwwroot\demo\sanxia_demo\frontend\node_modules\@parcel\watcher-linux-arm-musl
+140 silly reify mark deleted [
+140 silly reify   'D:\\wwwroot\\demo\\sanxia_demo\\frontend\\node_modules\\@parcel\\watcher-linux-arm-musl'
+140 silly reify ]
+141 verbose reify failed optional dependency D:\wwwroot\demo\sanxia_demo\frontend\node_modules\@parcel\watcher-linux-arm-glibc
+142 silly reify mark deleted [
+142 silly reify   'D:\\wwwroot\\demo\\sanxia_demo\\frontend\\node_modules\\@parcel\\watcher-linux-arm-glibc'
+142 silly reify ]
+143 verbose reify failed optional dependency D:\wwwroot\demo\sanxia_demo\frontend\node_modules\@parcel\watcher-freebsd-x64
+144 silly reify mark deleted [
+144 silly reify   'D:\\wwwroot\\demo\\sanxia_demo\\frontend\\node_modules\\@parcel\\watcher-freebsd-x64'
+144 silly reify ]
+145 verbose reify failed optional dependency D:\wwwroot\demo\sanxia_demo\frontend\node_modules\@parcel\watcher-darwin-x64
+146 silly reify mark deleted [
+146 silly reify   'D:\\wwwroot\\demo\\sanxia_demo\\frontend\\node_modules\\@parcel\\watcher-darwin-x64'
+146 silly reify ]
+147 verbose reify failed optional dependency D:\wwwroot\demo\sanxia_demo\frontend\node_modules\@parcel\watcher-darwin-arm64
+148 silly reify mark deleted [
+148 silly reify   'D:\\wwwroot\\demo\\sanxia_demo\\frontend\\node_modules\\@parcel\\watcher-darwin-arm64'
+148 silly reify ]
+149 verbose reify failed optional dependency D:\wwwroot\demo\sanxia_demo\frontend\node_modules\@parcel\watcher-android-arm64
+150 silly reify mark deleted [
+150 silly reify   'D:\\wwwroot\\demo\\sanxia_demo\\frontend\\node_modules\\@parcel\\watcher-android-arm64'
+150 silly reify ]
+151 verbose reify failed optional dependency D:\wwwroot\demo\sanxia_demo\frontend\node_modules\@esbuild\win32-ia32
+152 silly reify mark deleted [
+152 silly reify   'D:\\wwwroot\\demo\\sanxia_demo\\frontend\\node_modules\\@esbuild\\win32-ia32'
+152 silly reify ]
+153 verbose reify failed optional dependency D:\wwwroot\demo\sanxia_demo\frontend\node_modules\@esbuild\win32-arm64
+154 silly reify mark deleted [
+154 silly reify   'D:\\wwwroot\\demo\\sanxia_demo\\frontend\\node_modules\\@esbuild\\win32-arm64'
+154 silly reify ]
+155 verbose reify failed optional dependency D:\wwwroot\demo\sanxia_demo\frontend\node_modules\@esbuild\sunos-x64
+156 silly reify mark deleted [
+156 silly reify   'D:\\wwwroot\\demo\\sanxia_demo\\frontend\\node_modules\\@esbuild\\sunos-x64'
+156 silly reify ]
+157 verbose reify failed optional dependency D:\wwwroot\demo\sanxia_demo\frontend\node_modules\@esbuild\openbsd-x64
+158 silly reify mark deleted [
+158 silly reify   'D:\\wwwroot\\demo\\sanxia_demo\\frontend\\node_modules\\@esbuild\\openbsd-x64'
+158 silly reify ]
+159 verbose reify failed optional dependency D:\wwwroot\demo\sanxia_demo\frontend\node_modules\@esbuild\netbsd-x64
+160 silly reify mark deleted [
+160 silly reify   'D:\\wwwroot\\demo\\sanxia_demo\\frontend\\node_modules\\@esbuild\\netbsd-x64'
+160 silly reify ]
+161 verbose reify failed optional dependency D:\wwwroot\demo\sanxia_demo\frontend\node_modules\@esbuild\linux-x64
+162 silly reify mark deleted [
+162 silly reify   'D:\\wwwroot\\demo\\sanxia_demo\\frontend\\node_modules\\@esbuild\\linux-x64'
+162 silly reify ]
+163 verbose reify failed optional dependency D:\wwwroot\demo\sanxia_demo\frontend\node_modules\@esbuild\linux-s390x
+164 silly reify mark deleted [
+164 silly reify   'D:\\wwwroot\\demo\\sanxia_demo\\frontend\\node_modules\\@esbuild\\linux-s390x'
+164 silly reify ]
+165 verbose reify failed optional dependency D:\wwwroot\demo\sanxia_demo\frontend\node_modules\@esbuild\linux-riscv64
+166 silly reify mark deleted [
+166 silly reify   'D:\\wwwroot\\demo\\sanxia_demo\\frontend\\node_modules\\@esbuild\\linux-riscv64'
+166 silly reify ]
+167 verbose reify failed optional dependency D:\wwwroot\demo\sanxia_demo\frontend\node_modules\@esbuild\linux-ppc64
+168 silly reify mark deleted [
+168 silly reify   'D:\\wwwroot\\demo\\sanxia_demo\\frontend\\node_modules\\@esbuild\\linux-ppc64'
+168 silly reify ]
+169 verbose reify failed optional dependency D:\wwwroot\demo\sanxia_demo\frontend\node_modules\@esbuild\linux-mips64el
+170 silly reify mark deleted [
+170 silly reify   'D:\\wwwroot\\demo\\sanxia_demo\\frontend\\node_modules\\@esbuild\\linux-mips64el'
+170 silly reify ]
+171 verbose reify failed optional dependency D:\wwwroot\demo\sanxia_demo\frontend\node_modules\@esbuild\linux-loong64
+172 silly reify mark deleted [
+172 silly reify   'D:\\wwwroot\\demo\\sanxia_demo\\frontend\\node_modules\\@esbuild\\linux-loong64'
+172 silly reify ]
+173 verbose reify failed optional dependency D:\wwwroot\demo\sanxia_demo\frontend\node_modules\@esbuild\linux-ia32
+174 silly reify mark deleted [
+174 silly reify   'D:\\wwwroot\\demo\\sanxia_demo\\frontend\\node_modules\\@esbuild\\linux-ia32'
+174 silly reify ]
+175 verbose reify failed optional dependency D:\wwwroot\demo\sanxia_demo\frontend\node_modules\@esbuild\linux-arm64
+176 silly reify mark deleted [
+176 silly reify   'D:\\wwwroot\\demo\\sanxia_demo\\frontend\\node_modules\\@esbuild\\linux-arm64'
+176 silly reify ]
+177 verbose reify failed optional dependency D:\wwwroot\demo\sanxia_demo\frontend\node_modules\@esbuild\linux-arm
+178 silly reify mark deleted [
+178 silly reify   'D:\\wwwroot\\demo\\sanxia_demo\\frontend\\node_modules\\@esbuild\\linux-arm'
+178 silly reify ]
+179 verbose reify failed optional dependency D:\wwwroot\demo\sanxia_demo\frontend\node_modules\@esbuild\freebsd-x64
+180 silly reify mark deleted [
+180 silly reify   'D:\\wwwroot\\demo\\sanxia_demo\\frontend\\node_modules\\@esbuild\\freebsd-x64'
+180 silly reify ]
+181 verbose reify failed optional dependency D:\wwwroot\demo\sanxia_demo\frontend\node_modules\@esbuild\freebsd-arm64
+182 silly reify mark deleted [
+182 silly reify   'D:\\wwwroot\\demo\\sanxia_demo\\frontend\\node_modules\\@esbuild\\freebsd-arm64'
+182 silly reify ]
+183 verbose reify failed optional dependency D:\wwwroot\demo\sanxia_demo\frontend\node_modules\@esbuild\darwin-x64
+184 silly reify mark deleted [
+184 silly reify   'D:\\wwwroot\\demo\\sanxia_demo\\frontend\\node_modules\\@esbuild\\darwin-x64'
+184 silly reify ]
+185 verbose reify failed optional dependency D:\wwwroot\demo\sanxia_demo\frontend\node_modules\@esbuild\darwin-arm64
+186 silly reify mark deleted [
+186 silly reify   'D:\\wwwroot\\demo\\sanxia_demo\\frontend\\node_modules\\@esbuild\\darwin-arm64'
+186 silly reify ]
+187 verbose reify failed optional dependency D:\wwwroot\demo\sanxia_demo\frontend\node_modules\@esbuild\android-x64
+188 silly reify mark deleted [
+188 silly reify   'D:\\wwwroot\\demo\\sanxia_demo\\frontend\\node_modules\\@esbuild\\android-x64'
+188 silly reify ]
+189 verbose reify failed optional dependency D:\wwwroot\demo\sanxia_demo\frontend\node_modules\@esbuild\android-arm64
+190 silly reify mark deleted [
+190 silly reify   'D:\\wwwroot\\demo\\sanxia_demo\\frontend\\node_modules\\@esbuild\\android-arm64'
+190 silly reify ]
+191 verbose reify failed optional dependency D:\wwwroot\demo\sanxia_demo\frontend\node_modules\@esbuild\android-arm
+192 silly reify mark deleted [
+192 silly reify   'D:\\wwwroot\\demo\\sanxia_demo\\frontend\\node_modules\\@esbuild\\android-arm'
+192 silly reify ]
+193 verbose reify failed optional dependency D:\wwwroot\demo\sanxia_demo\frontend\node_modules\@esbuild\aix-ppc64
+194 silly reify mark deleted [
+194 silly reify   'D:\\wwwroot\\demo\\sanxia_demo\\frontend\\node_modules\\@esbuild\\aix-ppc64'
+194 silly reify ]
+195 silly tarball no local data for base64-arraybuffer@https://registry.npmjs.org/base64-arraybuffer/-/base64-arraybuffer-1.0.2.tgz. Extracting by manifest.
+196 silly tarball no local data for @types/trusted-types@https://registry.npmjs.org/@types/trusted-types/-/trusted-types-2.0.7.tgz. Extracting by manifest.
+197 silly tarball no local data for @types/pako@https://registry.npmjs.org/@types/pako/-/pako-2.0.4.tgz. Extracting by manifest.
+198 silly tarball no local data for performance-now@https://registry.npmjs.org/performance-now/-/performance-now-2.1.0.tgz. Extracting by manifest.
+199 silly tarball no local data for pako@https://registry.npmjs.org/pako/-/pako-2.1.0.tgz. Extracting by manifest.
+200 silly tarball no local data for iobuffer@https://registry.npmjs.org/iobuffer/-/iobuffer-5.4.0.tgz. Extracting by manifest.
+201 silly tarball no local data for stackblur-canvas@https://registry.npmjs.org/stackblur-canvas/-/stackblur-canvas-2.7.0.tgz. Extracting by manifest.
+202 silly tarball no local data for svg-pathdata@https://registry.npmjs.org/svg-pathdata/-/svg-pathdata-6.0.3.tgz. Extracting by manifest.
+203 silly tarball no local data for regenerator-runtime@https://registry.npmjs.org/regenerator-runtime/-/regenerator-runtime-0.13.11.tgz. Extracting by manifest.
+204 silly tarball no local data for fflate@https://registry.npmjs.org/fflate/-/fflate-0.8.2.tgz. Extracting by manifest.
+205 silly tarball no local data for rgbcolor@https://registry.npmjs.org/rgbcolor/-/rgbcolor-1.0.1.tgz. Extracting by manifest.
+206 silly tarball no local data for raf@https://registry.npmjs.org/raf/-/raf-3.4.1.tgz. Extracting by manifest.
+207 silly tarball no local data for fast-png@https://registry.npmjs.org/fast-png/-/fast-png-6.4.0.tgz. Extracting by manifest.
+208 silly tarball no local data for @babel/runtime@https://registry.npmjs.org/@babel/runtime/-/runtime-7.28.4.tgz. Extracting by manifest.
+209 silly tarball no local data for @types/raf@https://registry.npmjs.org/@types/raf/-/raf-3.4.3.tgz. Extracting by manifest.
+210 silly tarball no local data for core-js@https://registry.npmjs.org/core-js/-/core-js-3.47.0.tgz. Extracting by manifest.
+211 silly tarball no local data for dompurify@https://registry.npmjs.org/dompurify/-/dompurify-3.3.1.tgz. Extracting by manifest.
+212 silly tarball no local data for utrie@https://registry.npmjs.org/utrie/-/utrie-1.0.2.tgz. Extracting by manifest.
+213 silly tarball no local data for text-segmentation@https://registry.npmjs.org/text-segmentation/-/text-segmentation-1.0.3.tgz. Extracting by manifest.
+214 silly tarball no local data for canvg@https://registry.npmjs.org/canvg/-/canvg-3.0.11.tgz. Extracting by manifest.
+215 silly tarball no local data for css-line-break@https://registry.npmjs.org/css-line-break/-/css-line-break-2.1.0.tgz. Extracting by manifest.
+216 silly tarball no local data for jspdf@https://registry.npmjs.org/jspdf/-/jspdf-3.0.4.tgz. Extracting by manifest.
+217 silly tarball no local data for html2canvas@https://registry.npmjs.org/html2canvas/-/html2canvas-1.4.1.tgz. Extracting by manifest.
+218 http fetch POST 200 https://registry.npmjs.org/-/npm/v1/security/advisories/bulk 322ms
+219 silly audit report {
+219 silly audit report   esbuild: [
+219 silly audit report     {
+219 silly audit report       id: 1102341,
+219 silly audit report       url: 'https://github.com/advisories/GHSA-67mh-4wv8-2f99',
+219 silly audit report       title: 'esbuild enables any website to send any requests to the development server and read the response',
+219 silly audit report       severity: 'moderate',
+219 silly audit report       vulnerable_versions: '<=0.24.2',
+219 silly audit report       cwe: [Array],
+219 silly audit report       cvss: [Object]
+219 silly audit report     }
+219 silly audit report   ]
+219 silly audit report }
+220 http fetch GET 200 https://registry.npmjs.org/regenerator-runtime/-/regenerator-runtime-0.13.11.tgz 328ms (cache miss)
+221 http fetch GET 200 https://registry.npmjs.org/@types/pako/-/pako-2.0.4.tgz 333ms (cache miss)
+222 http fetch GET 200 https://registry.npmjs.org/@types/trusted-types/-/trusted-types-2.0.7.tgz 340ms (cache miss)
+223 http fetch GET 200 https://registry.npmjs.org/base64-arraybuffer/-/base64-arraybuffer-1.0.2.tgz 369ms (cache miss)
+224 http fetch GET 200 https://registry.npmjs.org/performance-now/-/performance-now-2.1.0.tgz 417ms (cache miss)
+225 http fetch GET 200 https://registry.npmjs.org/iobuffer/-/iobuffer-5.4.0.tgz 420ms (cache miss)
+226 http fetch GET 200 https://registry.npmjs.org/stackblur-canvas/-/stackblur-canvas-2.7.0.tgz 430ms (cache miss)
+227 http fetch GET 200 https://registry.npmjs.org/svg-pathdata/-/svg-pathdata-6.0.3.tgz 452ms (cache miss)
+228 http fetch GET 200 https://registry.npmjs.org/@types/raf/-/raf-3.4.3.tgz 467ms (cache miss)
+229 http fetch GET 200 https://registry.npmjs.org/utrie/-/utrie-1.0.2.tgz 881ms (cache miss)
+230 http fetch GET 200 https://registry.npmjs.org/css-line-break/-/css-line-break-2.1.0.tgz 901ms (cache miss)
+231 http fetch GET 200 https://registry.npmjs.org/pako/-/pako-2.1.0.tgz 1266ms (cache miss)
+232 http fetch GET 200 https://registry.npmjs.org/esbuild 1022ms (cache miss)
+233 http fetch GET 200 https://registry.npmjs.org/dompurify/-/dompurify-3.3.1.tgz 1366ms (cache miss)
+234 http fetch GET 200 https://registry.npmjs.org/fflate/-/fflate-0.8.2.tgz 1418ms (cache miss)
+235 http fetch GET 200 https://registry.npmjs.org/fast-png/-/fast-png-6.4.0.tgz 1507ms (cache miss)
+236 http fetch GET 200 https://registry.npmjs.org/rgbcolor/-/rgbcolor-1.0.1.tgz 1516ms (cache miss)
+237 http fetch GET 200 https://registry.npmjs.org/@babel/runtime/-/runtime-7.28.4.tgz 1695ms (cache miss)
+238 http fetch GET 200 https://registry.npmjs.org/canvg/-/canvg-3.0.11.tgz 1700ms (cache miss)
+239 http fetch GET 200 https://registry.npmjs.org/raf/-/raf-3.4.1.tgz 2059ms (cache miss)
+240 http fetch GET 200 https://registry.npmjs.org/html2canvas/-/html2canvas-1.4.1.tgz 2240ms (cache miss)
+241 http fetch GET 200 https://registry.npmjs.org/vite 923ms (cache miss)
+242 http fetch GET 200 https://registry.npmjs.org/@vitejs%2fplugin-vue 479ms (cache miss)
+243 http fetch GET 200 https://registry.npmjs.org/jspdf/-/jspdf-3.0.4.tgz 3485ms (cache miss)
+244 http fetch GET 200 https://registry.npmjs.org/text-segmentation/-/text-segmentation-1.0.3.tgz 5065ms (cache miss)
+245 http fetch GET 200 https://registry.npmjs.org/core-js/-/core-js-3.47.0.tgz 7761ms (cache miss)
+246 info run core-js@3.47.0 postinstall node_modules/core-js node -e "try{require('./postinstall')}catch(e){}"
+247 info run core-js@3.47.0 postinstall { code: 0, signal: null }
+248 silly ADD node_modules/base64-arraybuffer
+249 silly ADD node_modules/performance-now
+250 silly ADD node_modules/pako
+251 silly ADD node_modules/iobuffer
+252 silly ADD node_modules/@types/pako
+253 silly ADD node_modules/@types/trusted-types
+254 silly ADD node_modules/svg-pathdata
+255 silly ADD node_modules/stackblur-canvas
+256 silly ADD node_modules/rgbcolor
+257 silly ADD node_modules/regenerator-runtime
+258 silly ADD node_modules/raf
+259 silly ADD node_modules/@types/raf
+260 silly ADD node_modules/fflate
+261 silly ADD node_modules/fast-png
+262 silly ADD node_modules/dompurify
+263 silly ADD node_modules/core-js
+264 silly ADD node_modules/canvg
+265 silly ADD node_modules/@babel/runtime
+266 silly ADD node_modules/utrie
+267 silly ADD node_modules/text-segmentation
+268 silly ADD node_modules/css-line-break
+269 silly ADD node_modules/jspdf
+270 silly ADD node_modules/html2canvas
+271 silly ADD
+272 silly ADD
+273 silly ADD
+274 silly ADD
+275 silly ADD
+276 silly ADD
+277 silly ADD
+278 silly ADD
+279 silly ADD
+280 silly ADD
+281 silly ADD
+282 silly ADD
+283 silly ADD
+284 silly ADD
+285 silly ADD
+286 silly ADD
+287 silly ADD
+288 silly ADD
+289 silly ADD
+290 silly ADD
+291 silly ADD
+292 silly ADD
+293 silly ADD
+294 silly ADD
+295 silly ADD
+296 silly ADD
+297 silly ADD
+298 silly ADD
+299 silly ADD
+300 silly ADD
+301 silly ADD
+302 silly ADD
+303 silly ADD
+304 silly ADD
+305 silly ADD
+306 silly ADD
+307 silly ADD
+308 silly ADD
+309 silly ADD
+310 silly ADD
+311 silly ADD
+312 silly ADD
+313 silly ADD
+314 silly ADD
+315 silly ADD
+316 silly ADD
+317 silly ADD
+318 silly ADD
+319 silly ADD
+320 silly ADD
+321 silly ADD
+322 silly ADD
+323 silly ADD
+324 silly ADD
+325 silly ADD
+326 verbose exit 0
+327 info ok
